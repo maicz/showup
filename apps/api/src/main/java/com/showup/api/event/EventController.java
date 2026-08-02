@@ -14,22 +14,26 @@ import java.util.UUID;
 public class EventController {
 
     private final EventRepository events;
+    private final EventMapper mapper;
 
-    EventController(EventRepository events) {
+    EventController(EventRepository events, EventMapper mapper) {
         this.events = events;
+        this.mapper = mapper;
     }
 
     @GetMapping
-    public List<EventResponse> list() {
-        return events.findAllByOrderByStartsAtAsc().stream()
-                .map(EventResponse::from)
+    public List<EventSummary> list() {
+        return events.findAllByStatusOrderByStartsAtAsc(EventStatus.PUBLISHED).stream()
+                .map(mapper::toSummary)
                 .toList();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EventResponse> byId(@PathVariable UUID id) {
+    public ResponseEntity<EventDetail> byId(@PathVariable UUID id) {
         return events.findById(id)
-                .map(EventResponse::from)
+                // hosts/viewerRsvp need the event-host and RSVP tables joined in — left for the
+                // service layer that will back this endpoint; not wired up yet.
+                .map(event -> mapper.toDetail(event, List.of(), null))
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

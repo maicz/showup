@@ -3,8 +3,8 @@ import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of, startWith } from 'rxjs';
 
-import { EventService } from './event-service';
-import { Event } from './event';
+import { EventService } from '../event.service';
+import { Event } from '../event.model';
 
 type EventListState =
   | { status: 'loading' }

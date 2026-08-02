@@ -7,5 +7,7 @@ import java.util.UUID;
 
 public interface EventRepository extends JpaRepository<Event, UUID> {
 
-    List<Event> findAllByOrderByStartsAtAsc();
+    List<Event> findAllByGroupIdOrderByStartsAtDesc(UUID groupId);
+
+    List<Event> findAllByStatusOrderByStartsAtAsc(EventStatus status);
 }

@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
-import { EventList } from './event/event-list';
+import { EventList } from './features/event/event-list/event-list';
 
 @Component({
   selector: 'app-root',

@@ -2,7 +2,10 @@ name: showup
 
 services:
   postgres:
-    image: postgres:18-trixie
+    # PostGIS image (not the official postgres image) so geography(Point) columns,
+    # GiST-indexed radius search, and KNN "nearest N" ordering are available.
+    # See docs/domain-model.md#extensions-and-one-open-decision.
+    image: postgis/postgis:18-3.6
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-showup}

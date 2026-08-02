@@ -6,6 +6,10 @@ QR check-in, attendance, and organizer reporting.
 **Status:** Walking skeleton. A single vertical slice (list events) runs end to end —
 Postgres → Flyway → JPA → REST → Angular. None of the product features above are built yet.
 
+## Docs
+
+- [Domain model](docs/domain-model.md) — entities, DTOs, indexes, and the migration plan.
+
 ## Stack
 
 | Piece    | Version                  |
@@ -29,7 +33,7 @@ showup/
     │       └── resources/db/migration/      # Flyway migrations
     └── web/               # Angular client
         ├── proxy.conf.json                  # /api → localhost:8080
-        └── src/app/event/                   # event list component + service
+        └── src/app/features/event/          # event list component + service, one folder per feature area
 ```
 
 Each app owns its own build (`pom.xml`, `package.json`) — there is no root-level build tool.
@@ -55,8 +59,9 @@ cd apps/api
 ./mvnw spring-boot:run
 ```
 
-Flyway applies `V1__create_event.sql` on boot, which creates the `event` table and seeds two
-rows. Check it: `curl localhost:8080/api/events`.
+Flyway applies the migrations in `db/migration` on boot, building out the full domain model
+(members, groups, venues, events, RSVPs, attendance — see [the domain model doc](docs/domain-model.md))
+and seeding two demo events. Check it: `curl localhost:8080/api/events`.
 
 **3. Web** — http://localhost:4200
 

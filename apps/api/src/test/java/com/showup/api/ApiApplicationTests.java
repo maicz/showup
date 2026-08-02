@@ -1,6 +1,7 @@
 package com.showup.api;
 
 import com.showup.api.event.EventRepository;
+import com.showup.api.event.EventStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,7 +19,7 @@ class ApiApplicationTests {
 
     @Test
     void flywayMigrationSeedsEvents(@Autowired EventRepository events) {
-        assertThat(events.findAllByOrderByStartsAtAsc())
+        assertThat(events.findAllByStatusOrderByStartsAtAsc(EventStatus.PUBLISHED))
                 .extracting(event -> event.getTitle())
                 .contains("Spring Boot Meetup", "Angular Signals Workshop");
     }
