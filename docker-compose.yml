@@ -1,0 +1,26 @@
+name: showup
+
+services:
+  postgres:
+    image: postgres:18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-showup}
+      POSTGRES_USER: ${POSTGRES_USER:-showup}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-showup}
+    ports:
+      # 5433 on the host so this stack can run next to any other local Postgres.
+      # Bound to 127.0.0.1 so the dev database is never reachable from the network.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      # Postgres 18 declares its volume at /var/lib/postgresql (not .../data).
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-showup} -d ${POSTGRES_DB:-showup}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres-data:

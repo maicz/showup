@@ -1,0 +1,13 @@
+# Local secrets and config — never commit. .env.example is the tracked template.
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs
+*.log

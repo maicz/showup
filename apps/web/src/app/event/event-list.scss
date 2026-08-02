@@ -1,0 +1,44 @@
+.events {
+  h2 {
+    margin: 0 0 1rem;
+    font-size: 1.25rem;
+  }
+}
+
+.hint {
+  color: #64748b;
+
+  &.error {
+    color: #b91c1c;
+  }
+}
+
+.event-list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-card {
+  padding: 1rem 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+
+  h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+  }
+
+  .meta {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.875rem;
+  }
+
+  .description {
+    margin: 0.5rem 0 0;
+  }
+}

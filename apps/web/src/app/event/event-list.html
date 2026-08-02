@@ -1,0 +1,34 @@
+<section class="events">
+  <h2>Upcoming events</h2>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="hint">Loading events…</p>
+    }
+    @case ('error') {
+      <p class="hint error">
+        Could not reach the API. Is the backend running on <code>localhost:8080</code>?
+      </p>
+    }
+    @default {
+      @if (events().length === 0) {
+        <p class="hint">No events yet.</p>
+      } @else {
+        <ul class="event-list">
+          @for (event of events(); track event.id) {
+            <li class="event-card">
+              <h3>{{ event.title }}</h3>
+              <p class="meta">
+                {{ event.startsAt | date: 'medium' }} · {{ event.location }} ·
+                {{ event.capacity }} spots
+              </p>
+              @if (event.description) {
+                <p class="description">{{ event.description }}</p>
+              }
+            </li>
+          }
+        </ul>
+      }
+    }
+  }
+</section>
