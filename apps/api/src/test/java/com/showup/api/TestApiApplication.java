@@ -1,5 +1,6 @@
 package com.showup.api;
 
+import com.showup.api.config.TestcontainersConfiguration;
 import org.springframework.boot.SpringApplication;
 
 /**

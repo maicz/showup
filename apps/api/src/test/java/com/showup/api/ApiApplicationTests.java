@@ -1,7 +1,8 @@
 package com.showup.api;
 
-import com.showup.api.event.EventRepository;
-import com.showup.api.event.EventStatus;
+import com.showup.api.config.TestcontainersConfiguration;
+import com.showup.api.enums.EventStatus;
+import com.showup.api.repository.EventRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

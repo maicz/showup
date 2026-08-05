@@ -22,6 +22,15 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+showup:
+  security:
+    jwt:
+      # HS256 needs >= 32 bytes. The default is a development-only key: the app refuses to start
+      # with it once a profile other than "default" or "test" is active. Set JWT_SECRET in real
+      # environments.
+      secret: ${JWT_SECRET:dev-only-insecure-signing-key-change-me-32B+}
+      ttl: ${JWT_TTL:PT12H}
+
 management:
   endpoints:
     web:

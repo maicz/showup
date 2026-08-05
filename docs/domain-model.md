@@ -25,19 +25,59 @@ tickets, QR check-in, staff assignments, comments, photos, and post-event feedba
 
 ## Bounded areas
 
-Suggested package layout, one package per area, mirroring how the tables cluster:
+The tables cluster into six areas. These are a way to reason about the model, not a package
+layout — the code is organized by layer (see [Package layout](#package-layout)):
+
+| Area | Tables |
+| --- | --- |
+| Shared | `BaseEntity`, `Address`, `Money`, `GeoPoint` (mapped types, not tables of their own) |
+| Identity | `member`, `member_identity`, `member_interest`, `category`, `topic` |
+| Group | `group`, `group_membership`, `group_topic`, `venue` |
+| Event | `event`, `event_series`, `event_host`, `event_comment`, `event_photo` |
+| RSVP | `rsvp` |
+| Attendance | `ticket`, `check_in`, `staff_assignment`, `event_feedback` |
+
+The Flyway migrations are versioned along these same seams — see the [migration
+plan](#migration-plan).
+
+## Package layout
+
+Classes are grouped by **what they are**, not by which area they belong to. One package per layer:
 
 ```
 com.showup.api
-├── shared/       BaseEntity, Address, Money, GeoPoint
-├── member/       Member, MemberIdentity, MemberInterest
-├── topic/        Category, Topic
-├── group/        Group, GroupMembership, GroupTopic
-├── venue/        Venue
-├── event/        Event, EventSeries, EventHost, EventComment, EventPhoto
-├── rsvp/         Rsvp
-└── attendance/   Ticket, CheckIn, StaffAssignment, EventFeedback
+├── config/       Spring @Configuration — security chain, JWT beans, argument resolvers
+├── controller/   REST endpoints; bind + validate, delegate, return DTOs
+├── service/      transactional business logic and authorization rules
+├── repository/   Spring Data JPA repositories
+├── entity/       JPA entities and embeddables (Address, Money, BaseEntity)
+├── dto/          request/response records — the wire format
+├── enums/        enums shared by entities and DTOs (statuses, roles, formats)
+├── mapper/       MapStruct entity ↔ DTO mappers
+├── validation/   custom jakarta.validation constraints
+├── exception/    domain exceptions, each mapped to one HTTP status
+├── security/     bearer token → acting member id
+└── util/         stateless helpers (JTS ↔ GeoPoint, RRULE expansion)
 ```
+
+Two things this buys over one package per area:
+
+- **The dependency direction is visible.** `controller → service → repository → entity`, with
+  `mapper` translating entity to `dto` at the edge. A `com.showup.api.entity` import inside a
+  controller is a rule violation you can see in the import block — and grep for — rather than
+  something buried inside a feature package where everything is a legal neighbour.
+- **The entity/DTO split stays enforceable.** The whole point of the [DTO section](#dtos) is that
+  entities never cross the controller boundary. That is far easier to hold when they are not
+  sitting in the same package as the records that replace them.
+
+`enums` is plural because `enum` is a reserved word. Enums sit apart from `entity` because both
+entities and DTOs name them and neither owns them. Every package carries a `package-info.java`
+stating what belongs in it, so the convention travels with the code.
+
+Two packages sit outside the strict layering because they cut across it: `exception/`, whose
+types every service throws and one `@RestControllerAdvice` translates, and `security/`, which
+turns a bearer token into an acting member id. Authorization *rules* deliberately do not live in
+`security/` — see [the API reference](api.md#authorization).
 
 ### Social graph
 
@@ -219,6 +259,9 @@ original zone, and organizer reports need local-time grouping.
 
 **Money as integer minor units plus a currency code.** Never `double` — `0.1 + 0.2` is a support
 ticket. Two columns rather than a Postgres composite type keeps JPA mapping trivial via `@Embeddable Money`.
+`Money` is the one type that lives in `entity` and is still serialized straight to the wire: it is
+a record with no lazy state and no schema coupling worth hiding, so a `MoneyDto` clone of it would
+be pure ceremony.
 
 **`capacity` nullable rather than sentinel `-1` or `MAX_INT`.** Null means unlimited and the check
 constraint stays `capacity > 0`, so a nonsense zero-capacity event cannot be persisted.
@@ -397,7 +440,10 @@ State transitions get their own endpoints and DTOs rather than a patchable `stat
 
 ### Full DTO catalog
 
-| Group | DTOs |
+All of these live in `com.showup.api.dto`; the first column is the area they serve, not a
+sub-package.
+
+| Area | DTOs |
 | --- | --- |
 | Auth | `RegisterRequest`, `LoginRequest`, `TokenResponse`, `SsoLoginRequest` |
 | Member | `MemberSummary`, `MemberProfile`, `UpdateProfileRequest`, `UpdateInterestsRequest` |
@@ -410,11 +456,17 @@ State transitions get their own endpoints and DTOs rather than a patchable `stat
 | Attendance | `TicketResponse`, `CheckInRequest`, `CheckInResponse`, `StaffAssignmentSummary`, `AssignStaffRequest` |
 | Feedback | `EventFeedbackSummary`, `SubmitFeedbackRequest` |
 | Reporting | `EventAttendanceReport`, `GroupActivityReport` |
-| Shared | `Money`, `PageResponse<T>`, `ApiError` |
+| Shared | `PageResponse<T>`, `ApiError`, `GeoPoint` |
+
+The auth DTOs are all wired except `SsoLoginRequest`, whose endpoint returns 501 rather than
+trusting an unverified provider token — see [the API reference](api.md#authentication).
 
 `EventSearchQuery` binds the facets the product actually filters on: `lat`, `lon`,
 `radiusKm`, `categorySlug`, `topicSlugs`, `format`, `dateFrom`, `dateTo`, `maxFee`,
-`availability`, plus `page`/`size`/`sort`.
+`availability`, plus `page`/`size`/`sort`. Every component is a reference type, `page` and `size`
+included: an absent query parameter binds as null, and null does not convert to `int`, so a
+primitive would turn optional paging into a 400. Its compact constructor normalizes and caps
+paging once so no caller repeats the checks.
 
 `PageResponse<T>` wraps list results rather than returning Spring's `Page` — `Page` serializes an
 unstable internal shape that Spring Boot warns about, and pins your API to Spring's class layout.
@@ -440,10 +492,16 @@ migration, it is immutable and every change is a new version.
 | `V3__create_event.sql` | `event_series`, `event`, `event_host`, `rsvp` |
 | `V4__create_attendance.sql` | `ticket`, `check_in`, `staff_assignment`, `event_feedback` |
 | `V5__create_content.sql` | `event_comment`, `event_photo` |
+| `V6__add_event_cancellation.sql` | `event.cancelled_at`, `event.cancellation_reason` |
 | `R__seed_categories.sql` | Repeatable: the 24 categories and their topics |
 
 Split by area rather than one big file so a failure is traceable to a bounded change. Categories
 go in a repeatable migration because the list evolves and is reference data, not user data.
+
+`V6` came out of building the cancel endpoint: `CancelEventRequest` carries a reason that had
+nowhere to land. The event table recorded the status transition but not why or when — and
+attendees are owed the reason. It is a new version rather than an edit to `V3`, since by then the
+schema had been applied.
 
 `Group` needs quoting as `"group"` in DDL — it is a reserved SQL word. Consider `meetup_group` to
 avoid a permanent quoting tax in every hand-written query.

@@ -1,9 +1,0 @@
-package com.showup.api.member;
-
-import java.util.UUID;
-
-public record MemberSummary(
-        UUID id,
-        String displayName,
-        String photoUrl) {
-}
