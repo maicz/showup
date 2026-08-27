@@ -2,6 +2,7 @@ package com.showup.api.service;
 
 import com.showup.api.dto.GroupSummary;
 import com.showup.api.dto.MemberProfile;
+import com.showup.api.dto.MemberSummary;
 import com.showup.api.dto.TopicSummary;
 import com.showup.api.dto.UpdateInterestsRequest;
 import com.showup.api.dto.UpdateProfileRequest;
@@ -50,6 +51,11 @@ public class MemberService {
     @Transactional(readOnly = true)
     public MemberProfile profile(UUID memberId) {
         return memberMapper.toProfile(require(memberId));
+    }
+
+    @Transactional(readOnly = true)
+    public MemberSummary summary(UUID memberId) {
+        return memberMapper.toSummary(require(memberId));
     }
 
     public MemberProfile updateProfile(UUID actorId, UpdateProfileRequest request) {

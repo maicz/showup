@@ -18,4 +18,12 @@ public record EventDetail(
         int yesRsvpCount, int waitlistCount, AvailabilityState availability,
         GroupSummary group, List<MemberSummary> hosts,
         RsvpSummary viewerRsvp) {   // null when not signed in
+
+    public EventDetail withoutOnlineUrl() {
+        return new EventDetail(
+                id, title, description, status, format, venue, null,
+                startsAt, endsAt, timeZone, capacity, waitlistEnabled,
+                guestsPerRsvpLimit, fee, rsvpOpensAt, rsvpClosesAt,
+                yesRsvpCount, waitlistCount, availability, group, hosts, viewerRsvp);
+    }
 }

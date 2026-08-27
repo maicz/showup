@@ -8,5 +8,6 @@ public record TicketResponse(
         String code,
         int admitCount,
         Instant issuedAt,
-        boolean revoked) {
+        boolean revoked,
+        boolean checkedIn) {
 }

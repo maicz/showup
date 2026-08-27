@@ -35,7 +35,12 @@ class MemberProfileFlowTest extends ApiIntegrationTest {
 
         mvc.perform(authed(get("/api/members/" + id), token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.displayName").value("New Name"));
+                .andExpect(jsonPath("$.displayName").value("New Name"))
+                .andExpect(jsonPath("$.bio").value("Loves meetups"))
+                .andExpect(jsonPath("$.homeCity").value("Cluj"))
+                .andExpect(jsonPath("$.email").doesNotExist())
+                .andExpect(jsonPath("$.emailVerified").doesNotExist())
+                .andExpect(jsonPath("$.homeCountry").doesNotExist());
     }
 
     @Test
@@ -95,7 +100,9 @@ class MemberProfileFlowTest extends ApiIntegrationTest {
                 .andExpect(status().isOk());
         mvc.perform(authed(get("/api/members/me/events"), attendee))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(eventId.toString()));
+                .andExpect(jsonPath("$[0].id").value(eventId.toString()))
+                .andExpect(jsonPath("$[0].rsvpStatus").value("YES"))
+                .andExpect(jsonPath("$[0].guestCount").value(0));
 
         // Withdrawing (RsvpStatus.NO) drops it from "my events".
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders

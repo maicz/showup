@@ -10,5 +10,7 @@ public record CheckInResponse(
         String ticketCode,
         Instant checkedInAt,
         CheckInMethod method,
-        int admittedCount) {
+        int admittedCount,
+        boolean alreadyCheckedIn,
+        String attendeeName) {
 }

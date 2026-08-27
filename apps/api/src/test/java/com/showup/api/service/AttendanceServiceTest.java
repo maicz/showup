@@ -86,6 +86,10 @@ class AttendanceServiceTest {
 
         Ticket existing = mock(Ticket.class);
         when(tickets.findByRsvpId(rsvp.getId())).thenReturn(Optional.of(existing));
+        UUID existingTicketId = UUID.randomUUID();
+        when(existing.getId()).thenReturn(existingTicketId);
+        when(mapper.toResponse(existing)).thenReturn(
+                new com.showup.api.dto.TicketResponse(existingTicketId, "code", 3, java.time.Instant.now(), false, false));
 
         service.issueTicket(actorId, eventId);
 

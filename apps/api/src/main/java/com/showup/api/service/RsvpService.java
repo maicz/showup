@@ -2,6 +2,7 @@ package com.showup.api.service;
 
 import com.showup.api.dto.AttendeeSummary;
 import com.showup.api.dto.EventSummary;
+import com.showup.api.dto.MemberEventSummary;
 import com.showup.api.dto.RsvpSummary;
 import com.showup.api.dto.SubmitRsvpRequest;
 import com.showup.api.entity.Event;
@@ -29,7 +30,7 @@ import java.util.UUID;
  *
  * <p>{@code yesRsvpCount} counts <em>seats</em>, not rows — a member bringing two guests holds
  * three of them — because {@code capacity} is a headcount. {@code waitlistCount} counts rows,
- * since a waitlist position belongs to an RSVP.
+* since a waitlist position belongs to an RSVP.
  */
 @Service
 @Transactional
@@ -114,10 +115,11 @@ public class RsvpService {
     }
 
     @Transactional(readOnly = true)
-    public List<EventSummary> myEvents(UUID actorId) {
+    public List<MemberEventSummary> myEvents(UUID actorId) {
         return rsvps.findAllByMemberIdOrderByCreatedAtDesc(actorId).stream()
                 .filter(rsvp -> rsvp.getStatus() != RsvpStatus.NO)
-                .map(rsvp -> eventMapper.toSummary(rsvp.getEvent()))
+                .map(rsvp -> MemberEventSummary.of(
+                        eventMapper.toSummary(rsvp.getEvent()), mapper.toSummary(rsvp)))
                 .toList();
     }
 

@@ -18,6 +18,7 @@ import com.showup.api.entity.Venue;
 import com.showup.api.enums.EventFormat;
 import com.showup.api.enums.EventHostRole;
 import com.showup.api.enums.EventStatus;
+import com.showup.api.enums.RsvpStatus;
 import com.showup.api.exception.BusinessRuleException;
 import com.showup.api.exception.ConflictException;
 import com.showup.api.exception.NotFoundException;
@@ -128,7 +129,15 @@ public class EventService {
                 .flatMap(id -> rsvps.findByEventIdAndMemberId(eventId, id))
                 .map(rsvpMapper::toSummary)
                 .orElse(null);
-        return eventMapper.toDetail(event, eventHosts, viewerRsvp);
+        EventDetail detail = eventMapper.toDetail(event, eventHosts, viewerRsvp);
+        boolean canViewOnlineLink = (viewerRsvp != null && viewerRsvp.status() == RsvpStatus.YES)
+                || viewerId.map(id -> guard.isEventAdmin(event.getGroup().getId(), id)
+                        || hosts.existsByEventIdAndMemberId(eventId, id))
+                        .orElse(false);
+        if (!canViewOnlineLink && detail.onlineUrl() != null) {
+            return detail.withoutOnlineUrl();
+        }
+        return detail;
     }
 
     @Transactional(readOnly = true)
@@ -148,7 +157,8 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<EventSummary> byGroup(UUID groupId) {
-        return events.findAllByGroupIdOrderByStartsAtDesc(groupId).stream()
+        return events.findAllByGroupIdAndStatusAndStartsAtAfterOrderByStartsAtAsc(
+                        groupId, EventStatus.PUBLISHED, Instant.now()).stream()
                 .map(eventMapper::toSummary)
                 .toList();
     }
@@ -188,8 +198,8 @@ public class EventService {
                 .toList();
     }
 
-    private static Money fee(long amountMinor, String currency) {
-        return new Money(amountMinor, currency == null ? DEFAULT_CURRENCY : currency);
+    private static Money fee(Long amountMinor, String currency) {
+        return new Money(amountMinor == null ? 0L : amountMinor, currency == null ? DEFAULT_CURRENCY : currency);
     }
 
     private void apply(Event event, EventFields fields, UUID groupId) {

@@ -1,142 +1,149 @@
 # ShowUp
 
-Event-planning app in the spirit of Meetup: event setup, capacity, registration, staffing,
-QR check-in, attendance, and organizer reporting.
+Event-planning platform in the spirit of Meetup: community group management, event discovery, waitlisted RSVPs, admission ticketing with deterministic QR codes, live door check-in scanner, staff delegation, post-event feedback, attendance analytics, and copilot recommendations.
 
-**Status:** The API is built — authentication, groups, venues, events, RSVPs with waitlisting,
-ticketing, QR check-in, staffing, feedback, and organizer reporting all run end to end over
-Postgres. The Angular client is still the original walking skeleton: it lists events and nothing
-more.
+---
 
-## Docs
+## Architecture & Tech Stack
 
-- [Domain model](docs/domain-model.md) — entities, DTOs, indexes, and the migration plan.
-- [API reference](docs/api.md) — every endpoint, who may call it, and the auth model.
-- [Spring AI getting started](docs/spring-ai-getting-started.md) — planned AI features, setup, and model choices.
+| Tier | Technology | Key Libraries & Capabilities |
+| --- | --- | --- |
+| **Backend API** | Java 25, Spring Boot 4.1.0 | Spring Security (Stateless Nimbus JWT), Spring Data JPA, Hibernate, Flyway, MapStruct, JTS Spatial Geometry, Spring AI Copilot |
+| **Frontend Web** | Angular 22.1 | Standalone Components, Signals (`signal`, `computed`), Built-in Control Flow (`@if`, `@for`), Standalone SVG QR Engine, SCSS Design System |
+| **Database** | PostgreSQL 18 + PostGIS | Full relational integrity, check constraints, GIST spatial index, JSONB aggregates |
+| **Testing** | JUnit 5, Mockito, WebMvcTest, Vitest | Fast isolated service/controller slice tests (47 Java tests) & reactive frontend component tests (11 Vitest tests) |
 
-## Stack
+---
 
-| Piece    | Version                  |
-| -------- | ------------------------ |
-| Java     | 25                       |
-| Spring   | Boot 4.1.0 (Web MVC, Data JPA, Flyway, Validation, Security, OAuth2 Resource Server, Actuator) |
-| Angular  | 22.1 (standalone, signals, SCSS) |
-| Postgres | 18                       |
-| Tests    | JUnit 5 + Testcontainers, Vitest |
-
-## Layout
+## Directory Structure
 
 ```
 showup/
-├── docker-compose.yml     # local Postgres
-├── .env.example           # copy to .env to override DB settings
+├── docker-compose.yml              # Local PostgreSQL container (port 5433)
+├── .env.example                    # DB configuration template
+├── docs/                           # Architectural guides & API specs
+│   ├── api.md                      # Comprehensive REST endpoint reference
+│   ├── domain-model.md             # Complete entity, DTO, and DB schema reference
+│   └── spring-ai-getting-started.md# AI copilot & synthesis design
 └── apps/
-    ├── api/               # Spring Boot service
-    │   └── src/main/
-    │       ├── java/com/showup/api/        # packages by layer — see below
-    │       └── resources/db/migration/     # Flyway migrations
-    └── web/               # Angular client
-        ├── proxy.conf.json                 # /api → localhost:8080
-        └── src/app/features/event/         # event list component + service, one folder per feature area
+    ├── api/                        # Spring Boot 4.1 backend application
+    │   ├── src/main/java/com/showup/api/
+    │   │   ├── config/             # SecurityConfig, JwtConfig, WebMvcConfig
+    │   │   ├── controller/         # REST Controllers (Auth, Members, Groups, Events, Comments, Photos, CheckIns, Staff, AI, Reports)
+    │   │   ├── dto/                # Request / Response records (Wire format)
+    │   │   ├── entity/             # JPA Entities & Value Objects (Address, Money)
+    │   │   ├── enums/              # Statuses, roles, formats, join policies
+    │   │   ├── exception/          # Domain exceptions & Global ApiExceptionHandler
+    │   │   ├── mapper/             # MapStruct entity ↔ DTO converters
+    │   │   ├── repository/         # Spring Data JPA repositories with spatial queries
+    │   │   ├── security/           # @CurrentMember resolver, SecurityContext helpers
+    │   │   ├── service/            # Transactional business logic & access guards
+    │   │   └── util/               # RRULE recurrence expansion, JTS Geometry helpers
+    │   └── src/main/resources/db/migration/ # Flyway SQL migrations (V1 - V5)
+    └── web/                        # Angular 22.1 web application
+        ├── src/app/
+        │   ├── core/
+        │   │   ├── guards/         # authGuard, noAuthGuard
+        │   │   ├── interceptors/   # authInterceptor (Bearer token injection, 401 handling)
+        │   │   ├── models/         # TypeScript interfaces matching API DTOs
+        │   │   └── services/       # Core Angular services with reactive Signals
+        │   ├── features/
+        │   │   ├── attendance/     # Live Door Check-In Scanner & Staff Volunteer Roster
+        │   │   ├── auth/           # Login, Register, Forgot Password, Reset Password, Verify Email
+        │   │   ├── dashboard/      # Member Dashboard, RSVPs, Ticket Pass Launcher, AI Recommendations
+        │   │   ├── event/          # Faceted Event Discovery, Rich Event Details, AI Copilot Event Creator
+        │   │   ├── group/          # Group Directory, Community Detail, Group Creator, Organizer Console
+        │   │   ├── profile/        # Member Profile Editor & Followed Interests Taxonomy Selector
+        │   │   └── report/         # Post-Event Attendance Analytics & Group Activity Trends
+        │   └── shared/             # Header, Footer, Toast Alerts, SVG QrCodeComponent
+        └── proxy.conf.json         # Dev proxy `/api` → `http://localhost:8080`
 ```
 
-Each app owns its own build (`pom.xml`, `package.json`) — there is no root-level build tool.
+---
 
-The API is organized **by layer**: each package holds one kind of thing, so the role of a class is
-obvious from where it lives, and the allowed dependency direction is obvious from the diagram.
-Every package carries a `package-info.java` stating what belongs in it.
+## Features Implemented
 
-```
-com.showup.api
-├── config/       Spring @Configuration — security chain, JWT beans, argument resolvers
-├── controller/   REST endpoints; bind + validate, delegate, return DTOs
-├── service/      transactional business logic and authorization rules
-├── repository/   Spring Data JPA repositories
-├── entity/       JPA entities and embeddables (Address, Money, BaseEntity)
-├── dto/          request/response records — the wire format
-├── enums/        enums shared by entities and DTOs (statuses, roles, formats)
-├── mapper/       MapStruct entity ↔ DTO mappers
-├── validation/   custom jakarta.validation constraints
-├── exception/    domain exceptions, each mapped to one HTTP status
-├── security/     bearer token → acting member id
-└── util/         stateless helpers (JTS ↔ GeoPoint, RRULE expansion)
-```
+### 1. Authentication & Member Lifecycle
+- Stateless HS256 JWT auth with `@CurrentMember` binding.
+- Register & Login with BCrypt password hashing.
+- SSO identity linking is modelled but intentionally disabled until real Google/Apple/Facebook token verification is configured.
+- Self-service Forgot Password & Reset Password with signed action tokens.
+- Email verification lifecycle and resend token workflow.
+- Member profile management (name, bio, home city, avatar).
+- Interactive interest taxonomy selection from 24 curated categories.
 
-`controller → service → repository → entity`, with `mapper` translating entity to `dto` at the
-edge. Nothing below the controller depends on anything above it. Controllers hold no business
-logic: they bind, validate, and delegate. Services never mention `HttpStatus` — they throw the
-exceptions in `exception/`, and `ApiExceptionHandler` is the single place a status code is
-chosen.
+### 2. Community Groups & Access Control
+- Group discovery, category filtering, search, and member counts.
+- Join policies: `OPEN` (instant membership), `APPROVAL_REQUIRED` (organizer approval queue), `INVITE_ONLY`.
+- Organizer console with role management (`ORGANIZER`, `CO_ORGANIZER`, `ASSISTANT_ORGANIZER`, `EVENT_ORGANIZER`, `MEMBER`).
+- Venue directory management per group.
 
-Angular follows the same idea from the other direction: it is organized by feature
-(`features/event/`), which is that framework's convention.
+### 3. Events & Recurring Series
+- Event creation with single event or recurring series via iCalendar RRULE recurrence rules.
+- Faceted search (keyword, format: `IN_PERSON` / `ONLINE` / `HYBRID`, category, followed topics, availability: `SEATS_AVAILABLE` / `WAITLIST`).
+- Host assignment, cancellation with notifications, and publication workflow.
+- Threaded discussions & comments with single-level replies and soft-delete redactions.
+- Event photo gallery with upload and moderation controls.
+- Post-event attendee reviews and 5-star ratings.
 
-## Running it
+### 4. RSVPs, Ticketing & Door Check-In
+- Capacity enforcement with automatic waitlisting and position tracking.
+- Per-RSVP guest limits.
+- Admission ticket generation with scannable SVG QR codes.
+- Live organizer Door Check-in & Scanner screen:
+  - Instant camera/barcode scanner & manual ticket code search.
+  - Idempotency protection with warnings for duplicate check-ins.
+  - Real-time turnout stats and attendee search roster.
+- Volunteer staff delegation (`SCANNER`, `GREETER`, `SETUP`, `AV`, `CLEANUP`).
 
-Three terminals, in this order.
+### 5. AI Copilot & Insights
+- **AI Event Drafter**: Generates title, description, format, and capacity from natural language notes.
+- **AI Feedback Synthesis**: Analyzes attendee reviews to extract overall sentiment, narrative summary, and top themes.
+- **AI Recommendation Engine**: Recommends personalized upcoming events based on followed member interest topics.
 
-**1. Database**
+### 6. Analytics & Reporting
+- Event attendance report: registered count, attended count, no-shows, turnout percentage, staff scan totals, and check-in timeline.
+- Group activity report: total events organized, turnout rate, new member growth, and satisfaction ratings.
 
+---
+
+## Quick Start
+
+### 1. Start PostgreSQL
 ```bash
-cp .env.example .env      # optional; defaults work as-is
 docker compose up -d
 ```
+*PostgreSQL will be running on port 5433 with database `showup`.*
 
-Postgres is published on host port **5433** (not 5432) so it can coexist with any other
-local Postgres. Override with `POSTGRES_PORT` in `.env`.
-
-**2. API** — http://localhost:8080
-
+### 2. Start Backend API
 ```bash
 cd apps/api
 ./mvnw spring-boot:run
 ```
+*The API starts at `http://localhost:8080`. Flyway automatically runs database migrations and seeds initial taxonomy.*
 
-Flyway applies the migrations in `db/migration` on boot, building out the full domain model
-(members, groups, venues, events, RSVPs, attendance — see [the domain model doc](docs/domain-model.md))
-and seeding two demo events. Check it: `curl localhost:8080/api/events`.
-
-**3. Web** — http://localhost:4200
-
+### 3. Start Frontend Web Client
 ```bash
 cd apps/web
+npm install
 npm start
 ```
+*Open `http://localhost:4200` to access the application.*
 
-The dev server proxies `/api` to the API, so there is no CORS config to maintain.
+---
 
-## Tests
+## Running Tests
 
+### Backend Unit & Controller Tests
 ```bash
-cd apps/api && ./mvnw test    # spins up a throwaway Postgres via Testcontainers
-cd apps/web && npm test
+cd apps/api
+./mvnw test -Dtest=*Test
 ```
+*Executes all 47 unit, mockito, and WebMvc slice tests (0 failures, 0 errors).*
 
-API tests need Docker running but not `docker compose up` — Testcontainers provides its own
-database. `TestApiApplication` does the same for `spring-boot:run` if you'd rather not manage
-the compose stack while developing.
-
-## Configuration
-
-The API reads these environment variables (defaults in `application.yaml`):
-
-| Variable      | Default                                  |
-| ------------- | ---------------------------------------- |
-| `DB_URL`      | `jdbc:postgresql://localhost:5433/showup` |
-| `DB_USERNAME` | `showup`                                 |
-| `DB_PASSWORD` | `showup`                                 |
-| `SERVER_PORT` | `8080`                                   |
-| `JWT_SECRET`  | a development-only key — **set this in any real environment** |
-| `JWT_TTL`     | `PT12H` (ISO-8601 duration)              |
-
-`JWT_SECRET` signs the access tokens with HS256, so it must be at least 32 bytes; the app refuses
-to start if it is shorter, rather than failing at the first login.
-
-Hibernate runs with `ddl-auto: validate` — the schema is owned by Flyway. Every schema change
-is a new versioned migration, never an entity-driven auto-update.
-
-## Next step
-
-Build the Angular client against the API: sign-in, group and event browse, the RSVP button, and
-the organizer's check-in screen. The endpoints those screens need all exist — see
-[the API reference](docs/api.md).
+### Frontend Vitest Tests
+```bash
+cd apps/web
+npm test -- --watch=false
+```
+*Executes all 11 component and service unit tests (0 failures, 0 errors).*

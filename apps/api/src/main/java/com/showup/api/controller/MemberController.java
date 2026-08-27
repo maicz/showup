@@ -3,6 +3,8 @@ package com.showup.api.controller;
 import com.showup.api.dto.EventSummary;
 import com.showup.api.dto.GroupSummary;
 import com.showup.api.dto.MemberProfile;
+import com.showup.api.dto.MemberSummary;
+import com.showup.api.dto.MemberEventSummary;
 import com.showup.api.dto.TopicSummary;
 import com.showup.api.dto.UpdateInterestsRequest;
 import com.showup.api.dto.UpdateProfileRequest;
@@ -43,8 +45,8 @@ public class MemberController {
     }
 
     @GetMapping("/{id}")
-    public MemberProfile byId(@PathVariable UUID id) {
-        return members.profile(id);
+    public MemberSummary byId(@PathVariable UUID id) {
+        return members.summary(id);
     }
 
     @GetMapping("/me/interests")
@@ -65,7 +67,7 @@ public class MemberController {
 
     /** "My events" — every event the caller is seated or waitlisted for, newest response first. */
     @GetMapping("/me/events")
-    public List<EventSummary> events(@CurrentMember UUID actor) {
+    public List<MemberEventSummary> events(@CurrentMember UUID actor) {
         return rsvps.myEvents(actor);
     }
 }

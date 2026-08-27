@@ -22,9 +22,14 @@ public interface EventRepository extends JpaRepository<Event, UUID>, EventSearch
 
     List<Event> findAllByGroupIdAndStatusOrderByStartsAtAsc(UUID groupId, EventStatus status);
 
+    List<Event> findAllByGroupIdAndStatusAndStartsAtAfterOrderByStartsAtAsc(
+            UUID groupId, EventStatus status, Instant startsAfter);
+
     List<Event> findAllBySeriesIdOrderByStartsAtAsc(UUID seriesId);
 
     List<Event> findAllByGroupIdAndStartsAtBetween(UUID groupId, Instant from, Instant to);
+
+    long countByGroupIdAndStartsAtBetween(UUID groupId, Instant from, Instant to);
 
     /**
      * Takes {@code SELECT ... FOR UPDATE} on the event row. Seat allocation reads

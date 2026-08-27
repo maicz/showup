@@ -2,6 +2,7 @@ package com.showup.api.service;
 
 import com.showup.api.dto.EventAttendanceReport;
 import com.showup.api.dto.GroupActivityReport;
+import com.showup.api.dto.RsvpRollup;
 import com.showup.api.entity.CheckIn;
 import com.showup.api.entity.Event;
 import com.showup.api.entity.Group;
@@ -94,18 +95,11 @@ public class ReportingService {
         guard.requireEventAdmin(groupId, actorId);
         Group group = groupService.require(groupId);
 
-        List<Event> hosted = events.findAllByGroupIdAndStartsAtBetween(groupId, from, to);
-        int totalRsvps = 0;
-        int totalRegistered = 0;
-        int totalAttended = 0;
-        for (Event event : hosted) {
-            List<Rsvp> yes = rsvps.findAllByEventIdAndStatus(event.getId(), RsvpStatus.YES);
-            totalRsvps += yes.size();
-            totalRegistered += yes.stream().mapToInt(rsvp -> 1 + rsvp.getGuestCount()).sum();
-            totalAttended += checkIns.findAllByTicketRsvpEventId(event.getId()).stream()
-                    .mapToInt(CheckIn::getAdmittedCount)
-                    .sum();
-        }
+        int hostedCount = (int) events.countByGroupIdAndStartsAtBetween(groupId, from, to);
+        RsvpRollup rsvpRollup = rsvps.aggregateRsvpsForGroupBetween(groupId, from, to, RsvpStatus.YES);
+        int totalRsvps = (int) (rsvpRollup != null ? rsvpRollup.totalRsvps() : 0);
+        int totalRegistered = (int) (rsvpRollup != null ? rsvpRollup.totalRegistered() : 0);
+        int totalAttended = (int) checkIns.sumAdmittedCountForGroupBetween(groupId, from, to);
         Double averageRating = feedback.averageRatingForGroupBetween(groupId, from, to);
 
         return new GroupActivityReport(
@@ -113,7 +107,7 @@ public class ReportingService {
                 group.getName(),
                 from,
                 to,
-                hosted.size(),
+                hostedCount,
                 totalRsvps,
                 totalAttended,
                 rate(totalAttended, totalRegistered),

@@ -85,7 +85,7 @@ class EventSearchRepositoryDataJpaTest {
         entityManager.flush();
 
         EventSearchQuery searchQuery = new EventSearchQuery(BUCHAREST.latitude(), BUCHAREST.longitude(), 25.0,
-                null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
 
         assertThat(idsFor(searchQuery)).contains(nearEvent.getId()).doesNotContain(farEvent.getId());
     }
@@ -167,7 +167,7 @@ class EventSearchRepositoryDataJpaTest {
         entityManager.flush();
 
         EventSearchQuery searchQuery = new EventSearchQuery(null, null, null, null, null, null, null, null, null,
-                null, null, null, "not-a-real-sort-key");
+                null, null, null, null, "not-a-real-sort-key");
         List<UUID> ours = events.search(searchQuery).getContent().stream()
                 .map(Event::getId)
                 .filter(id -> id.equals(earlier.getId()) || id.equals(later.getId()))
@@ -176,6 +176,27 @@ class EventSearchRepositoryDataJpaTest {
         // Order among our own two fixtures must still be startsAt ascending — the default sort —
         // regardless of whatever else the shared database happens to contain.
         assertThat(ours).containsExactly(earlier.getId(), later.getId());
+    }
+
+    @Test
+    void keywordSearchMatchesEventOrGroupNamesWithoutBeingCaseSensitive() {
+        Group matchingGroup = persistGroup();
+        Group otherGroup = persistGroupWithOwnCategory();
+        Event titleMatch = persistEvent(matchingGroup, null, EventStatus.PUBLISHED, EventFormat.ONLINE, 0,
+                null, false, Instant.now().plus(1, ChronoUnit.DAYS));
+        titleMatch.setTitle("Kotlin Coroutines Workshop");
+        Event other = persistEvent(otherGroup, null, EventStatus.PUBLISHED, EventFormat.ONLINE, 0,
+                null, false, Instant.now().plus(2, ChronoUnit.DAYS));
+        other.setTitle("Unrelated Gathering");
+        entityManager.flush();
+
+        EventSearchQuery byTitle = new EventSearchQuery(null, null, null, null, null, null, null, null,
+                null, null, "  COROUTINES ", null, null, null);
+        EventSearchQuery byGroup = new EventSearchQuery(null, null, null, null, null, null, null, null,
+                null, null, matchingGroup.getName().toUpperCase(), null, null, null);
+
+        assertThat(idsFor(byTitle)).contains(titleMatch.getId()).doesNotContain(other.getId());
+        assertThat(idsFor(byGroup)).contains(titleMatch.getId()).doesNotContain(other.getId());
     }
 
     // --- fixtures ---
@@ -222,7 +243,7 @@ class EventSearchRepositoryDataJpaTest {
                                    List<String> topicSlugs, EventFormat format, Instant dateFrom, Instant dateTo,
                                    Long maxFee, AvailabilityState availability) {
         return new EventSearchQuery(lat, lon, radiusKm, categorySlug, topicSlugs, format, dateFrom, dateTo,
-                maxFee, availability, null, null, null);
+                maxFee, availability, null, null, null, null);
     }
 
     private List<UUID> idsFor(AvailabilityState availability) {

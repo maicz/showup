@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Native SQL rather than Criteria: the radius filter is {@code ST_DWithin} over a
@@ -48,7 +52,9 @@ public class EventSearchRepositoryImpl implements EventSearchRepository {
         where.add("e.status = 'PUBLISHED'");
 
         boolean joinVenue = query.lat() != null && query.lon() != null && query.radiusKm() != null;
-        boolean joinGroup = query.categorySlug() != null || query.topicSlugs() != null && !query.topicSlugs().isEmpty();
+        boolean joinGroup = query.categorySlug() != null
+                || query.topicSlugs() != null && !query.topicSlugs().isEmpty()
+                || query.query() != null;
 
         if (joinVenue) {
             where.add("""
@@ -94,6 +100,10 @@ public class EventSearchRepositoryImpl implements EventSearchRepository {
                 case FULL -> "(e.capacity is not null and e.yes_rsvp_count >= e.capacity and not e.waitlist_enabled)";
             });
         }
+        if (query.query() != null) {
+            where.add("(lower(e.title) like :searchLike or lower(g.name) like :searchLike)");
+            params.put("searchLike", "%" + query.query().toLowerCase() + "%");
+        }
 
         String joins = (joinVenue ? " left join venue v on v.id = e.venue_id" : "")
                 + (joinGroup ? " join meetup_group g on g.id = e.group_id join category c on c.id = g.category_id" : "");
@@ -105,21 +115,49 @@ public class EventSearchRepositoryImpl implements EventSearchRepository {
         // Map.of rejects a null key outright, and sort is optional.
         String order = query.sort() == null ? DEFAULT_SORT : SORTS.getOrDefault(query.sort(), DEFAULT_SORT);
 
-        Query rows = entityManager.createNativeQuery(
-                "select e.* from event e" + joins + " where " + predicate + " order by " + order, Event.class);
         Query total = entityManager.createNativeQuery(
                 "select count(*) from event e" + joins + " where " + predicate);
-        params.forEach((name, value) -> {
-            rows.setParameter(name, value);
-            total.setParameter(name, value);
-        });
+        params.forEach(total::setParameter);
+        long count = ((Number) total.getSingleResult()).longValue();
+        if (count == 0) {
+            return new PageImpl<>(List.of(), PageRequest.of(page, size), 0);
+        }
+
+        Query rows = entityManager.createNativeQuery(
+                "select e.id from event e" + joins + " where " + predicate + " order by " + order);
+        params.forEach(rows::setParameter);
 
         @SuppressWarnings("unchecked")
-        List<Event> content = rows
+        List<?> rawIds = rows
                 .setFirstResult(page * size)
                 .setMaxResults(size)
                 .getResultList();
-        long count = ((Number) total.getSingleResult()).longValue();
+
+        if (rawIds.isEmpty()) {
+            return new PageImpl<>(List.of(), PageRequest.of(page, size), count);
+        }
+
+        List<UUID> ids = rawIds.stream()
+                .map(obj -> obj instanceof UUID u ? u : UUID.fromString(obj.toString()))
+                .toList();
+
+        Map<UUID, Event> byId = entityManager.createQuery("""
+                select e from Event e
+                 join fetch e.group g
+                 join fetch g.category
+                 left join fetch e.venue
+                where e.id in :ids
+                """, Event.class)
+                .setParameter("ids", ids)
+                .getResultList()
+                .stream()
+                .collect(Collectors.toMap(Event::getId, Function.identity()));
+
+        List<Event> content = ids.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .toList();
+
         return new PageImpl<>(content, PageRequest.of(page, size), count);
     }
 }

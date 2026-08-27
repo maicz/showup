@@ -17,6 +17,10 @@ public interface GroupMembershipRepository extends JpaRepository<GroupMembership
 
     List<GroupMembership> findAllByGroupIdAndStatus(UUID groupId, GroupMembershipStatus status);
 
+    /** The group's public "founder & organizer" byline — oldest active ORGANIZER row wins. */
+    Optional<GroupMembership> findFirstByGroupIdAndRoleAndStatusOrderByCreatedAtAsc(
+            UUID groupId, GroupMemberRole role, GroupMembershipStatus status);
+
     List<GroupMembership> findAllByMemberIdAndStatus(UUID memberId, GroupMembershipStatus status);
 
     /** Guards the "a group must keep at least one organizer" rule on demotion and departure. */

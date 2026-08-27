@@ -28,6 +28,7 @@ public record EventSearchQuery(
         Instant dateTo,
         Long maxFee,
         AvailabilityState availability,
+        String query,
         Integer page,
         Integer size,
         String sort) {
@@ -38,6 +39,7 @@ public record EventSearchQuery(
     public static final int MAX_SIZE = 100;
 
     public EventSearchQuery {
+        query = query == null || query.isBlank() ? null : query.trim().toLowerCase();
         page = page == null || page < 0 ? 0 : page;
         size = size == null || size < 1 ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
     }

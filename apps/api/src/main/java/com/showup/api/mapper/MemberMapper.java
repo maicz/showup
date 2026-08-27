@@ -14,6 +14,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface MemberMapper {
 
+    @Mapping(target = "memberSince", source = "createdAt")
     MemberSummary toSummary(Member member);
 
     @Mapping(target = "memberSince", source = "createdAt")

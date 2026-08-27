@@ -10,6 +10,7 @@ import com.showup.api.entity.Event;
 import com.showup.api.entity.Rsvp;
 import com.showup.api.entity.StaffAssignment;
 import com.showup.api.entity.Ticket;
+import com.showup.api.enums.CheckInMethod;
 import com.showup.api.enums.EventStatus;
 import com.showup.api.enums.RsvpStatus;
 import com.showup.api.enums.StaffRole;
@@ -67,16 +68,23 @@ public class AttendanceService {
                 .orElseGet(() -> tickets.save(new Ticket(rsvp, 1 + rsvp.getGuestCount())));
         // Guests can change after the ticket is issued; the door needs the current number.
         ticket.setAdmitCount(1 + rsvp.getGuestCount());
-        return mapper.toResponse(ticket);
+        return toResponseWithCheckInStatus(ticket);
     }
 
     @Transactional(readOnly = true)
     public TicketResponse myTicket(UUID actorId, UUID eventId) {
         Rsvp rsvp = rsvps.findByEventIdAndMemberId(eventId, actorId)
                 .orElseThrow(() -> new NotFoundException("you have not RSVPed to this event"));
-        return tickets.findByRsvpId(rsvp.getId())
-                .map(mapper::toResponse)
+        Ticket ticket = tickets.findByRsvpId(rsvp.getId())
                 .orElseThrow(() -> new NotFoundException("no ticket has been issued for this RSVP"));
+        return toResponseWithCheckInStatus(ticket);
+    }
+
+    /** {@link TicketResponse#checkedIn} isn't a ticket column — it's derived from whether a check-in row exists. */
+    private TicketResponse toResponseWithCheckInStatus(Ticket ticket) {
+        TicketResponse base = mapper.toResponse(ticket);
+        boolean checkedIn = checkIns.findByTicketId(ticket.getId()).isPresent();
+        return new TicketResponse(base.id(), base.code(), base.admitCount(), base.issuedAt(), base.revoked(), checkedIn);
     }
 
     /**
@@ -105,11 +113,50 @@ public class AttendanceService {
 
         CheckIn existing = checkIns.findByTicketId(ticket.getId()).orElse(null);
         if (existing != null) {
-            return mapper.toResponse(existing);
+            return toResponseWithMeta(existing, true);
         }
         CheckIn checkIn = new CheckIn(ticket, memberService.require(actorId),
                 request.method(), request.admittedCount());
-        return mapper.toResponse(checkIns.save(checkIn));
+        return toResponseWithMeta(checkIns.save(checkIn), false);
+    }
+
+    /**
+     * Door-staff shortcut for the roster view, where there is no ticket code to scan. Admits the
+     * attendee's full party, issuing their ticket on the spot if they never opened it themselves.
+     */
+    public CheckInResponse checkInByMember(UUID actorId, UUID eventId, UUID memberId) {
+        Event event = eventService.require(eventId);
+        requireScanner(actorId, event);
+        if (event.getStatus() == EventStatus.CANCELLED) {
+            throw new BusinessRuleException("event is cancelled");
+        }
+
+        Rsvp rsvp = rsvps.findByEventIdAndMemberId(eventId, memberId)
+                .orElseThrow(() -> new NotFoundException("that member has not RSVPed to this event"));
+        if (rsvp.getStatus() != RsvpStatus.YES) {
+            throw new BusinessRuleException("attendee is not seated (RSVP status: " + rsvp.getStatus() + ")");
+        }
+        Ticket ticket = tickets.findByRsvpId(rsvp.getId())
+                .orElseGet(() -> tickets.save(new Ticket(rsvp, 1 + rsvp.getGuestCount())));
+        if (ticket.getRevokedAt() != null) {
+            throw new BusinessRuleException("ticket was revoked at " + ticket.getRevokedAt());
+        }
+
+        CheckIn existing = checkIns.findByTicketId(ticket.getId()).orElse(null);
+        if (existing != null) {
+            return toResponseWithMeta(existing, true);
+        }
+        CheckIn checkIn = new CheckIn(ticket, memberService.require(actorId),
+                CheckInMethod.MANUAL, ticket.getAdmitCount());
+        return toResponseWithMeta(checkIns.save(checkIn), false);
+    }
+
+    /** {@link CheckInResponse#alreadyCheckedIn} and {@link CheckInResponse#attendeeName} aren't columns — they're derived per-call. */
+    private CheckInResponse toResponseWithMeta(CheckIn checkIn, boolean alreadyCheckedIn) {
+        CheckInResponse base = mapper.toResponse(checkIn);
+        String attendeeName = checkIn.getTicket().getRsvp().getMember().getDisplayName();
+        return new CheckInResponse(base.id(), base.ticketCode(), base.checkedInAt(), base.method(),
+                base.admittedCount(), alreadyCheckedIn, attendeeName);
     }
 
     public TicketResponse revokeTicket(UUID actorId, UUID eventId, UUID ticketId) {
@@ -120,7 +167,7 @@ public class AttendanceService {
             throw new BusinessRuleException("that ticket belongs to a different event");
         }
         ticket.setRevokedAt(Instant.now());
-        return mapper.toResponse(ticket);
+        return toResponseWithCheckInStatus(ticket);
     }
 
     public StaffAssignmentSummary assignStaff(UUID actorId, UUID eventId, AssignStaffRequest request) {

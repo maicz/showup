@@ -1,6 +1,8 @@
 package com.showup.api.dto;
 
 import com.showup.api.enums.GroupJoinPolicy;
+import com.showup.api.enums.GroupMemberRole;
+import com.showup.api.enums.GroupMembershipStatus;
 import com.showup.api.enums.GroupStatus;
 import com.showup.api.enums.GroupVisibility;
 
@@ -26,5 +28,8 @@ public record GroupDetail(
         int ratingCount,
         Instant foundedAt,
         GroupStatus status,
-        List<TopicSummary> topics) {
+        List<TopicSummary> topics,
+        MemberSummary organizer,
+        GroupMemberRole viewerRole,
+        GroupMembershipStatus viewerStatus) {
 }

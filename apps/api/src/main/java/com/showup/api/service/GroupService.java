@@ -5,6 +5,7 @@ import com.showup.api.dto.GroupDetail;
 import com.showup.api.dto.GroupMemberSummary;
 import com.showup.api.dto.GroupSummary;
 import com.showup.api.dto.JoinGroupRequest;
+import com.showup.api.dto.MemberSummary;
 import com.showup.api.dto.PageResponse;
 import com.showup.api.dto.TopicSummary;
 import com.showup.api.dto.UpdateGroupRequest;
@@ -17,11 +18,14 @@ import com.showup.api.entity.Member;
 import com.showup.api.entity.Topic;
 import com.showup.api.enums.GroupMemberRole;
 import com.showup.api.enums.GroupMembershipStatus;
+import com.showup.api.enums.GroupStatus;
+import com.showup.api.enums.GroupVisibility;
 import com.showup.api.exception.BusinessRuleException;
 import com.showup.api.exception.ConflictException;
 import com.showup.api.exception.ForbiddenException;
 import com.showup.api.exception.NotFoundException;
 import com.showup.api.mapper.GroupMapper;
+import com.showup.api.mapper.MemberMapper;
 import com.showup.api.mapper.TopicMapper;
 import com.showup.api.repository.CategoryRepository;
 import com.showup.api.repository.GroupMembershipRepository;
@@ -31,10 +35,12 @@ import com.showup.api.repository.TopicRepository;
 import com.showup.api.util.GeoPoints;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -50,11 +56,12 @@ public class GroupService {
     private final GroupAccessGuard guard;
     private final GroupMapper groupMapper;
     private final TopicMapper topicMapper;
+    private final MemberMapper memberMapper;
 
     GroupService(GroupRepository groups, GroupMembershipRepository memberships,
                  GroupTopicRepository groupTopics, CategoryRepository categories, TopicRepository topics,
                  MemberService memberService, GroupAccessGuard guard,
-                 GroupMapper groupMapper, TopicMapper topicMapper) {
+                 GroupMapper groupMapper, TopicMapper topicMapper, MemberMapper memberMapper) {
         this.groups = groups;
         this.memberships = memberships;
         this.groupTopics = groupTopics;
@@ -64,6 +71,7 @@ public class GroupService {
         this.guard = guard;
         this.groupMapper = groupMapper;
         this.topicMapper = topicMapper;
+        this.memberMapper = memberMapper;
     }
 
     public GroupDetail create(UUID actorId, CreateGroupRequest request) {
@@ -83,7 +91,7 @@ public class GroupService {
         groups.save(group);
         memberships.save(new GroupMembership(group, actor, GroupMemberRole.ORGANIZER, null));
         replaceTopics(group, request.topicIds());
-        return detail(group.getId());
+        return detail(group.getId(), Optional.of(actorId));
     }
 
     public GroupDetail update(UUID actorId, UUID groupId, UpdateGroupRequest request) {
@@ -99,27 +107,73 @@ public class GroupService {
         group.setVisibility(request.visibility());
         group.setJoinPolicy(request.joinPolicy());
         replaceTopics(group, request.topicIds());
-        return detail(groupId);
+        return detail(groupId, Optional.of(actorId));
     }
 
     @Transactional(readOnly = true)
-    public GroupDetail detail(UUID groupId) {
-        return groupMapper.toDetail(require(groupId), topicsOf(groupId));
+    public GroupDetail detail(UUID groupId, Optional<UUID> actorId) {
+        return buildDetail(require(groupId), actorId);
     }
 
     @Transactional(readOnly = true)
-    public GroupDetail detailByUrlname(String urlname) {
+    public GroupDetail detailByUrlname(String urlname, Optional<UUID> actorId) {
         Group group = groups.findByUrlname(urlname)
                 .orElseThrow(() -> NotFoundException.of("group", urlname));
-        return groupMapper.toDetail(group, topicsOf(group.getId()));
+        return buildDetail(group, actorId);
+    }
+
+    private GroupDetail buildDetail(Group group, Optional<UUID> actorId) {
+        requireViewable(group, actorId);
+        MemberSummary organizer = memberships
+                .findFirstByGroupIdAndRoleAndStatusOrderByCreatedAtAsc(
+                        group.getId(), GroupMemberRole.ORGANIZER, GroupMembershipStatus.ACTIVE)
+                .map(m -> memberMapper.toSummary(m.getMember()))
+                .orElse(null);
+        GroupMembership viewerMembership = actorId
+                .flatMap(id -> memberships.findByGroupIdAndMemberId(group.getId(), id))
+                .orElse(null);
+        GroupMemberRole viewerRole = viewerMembership != null ? viewerMembership.getRole() : null;
+        GroupMembershipStatus viewerStatus = viewerMembership != null ? viewerMembership.getStatus() : null;
+        return groupMapper.toDetail(group, topicsOf(group.getId()), organizer, viewerRole, viewerStatus);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<GroupSummary> list(int page, int size) {
-        Page<Group> found = groups.findAll(PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100)));
+    public PageResponse<GroupSummary> list(int page, int size, String query, String categorySlug,
+                                           String city, String sort) {
+        Sort ordering = switch (sort == null ? "popular" : sort) {
+            case "rating" -> Sort.by(Sort.Order.desc("ratingAverage").nullsLast(), Sort.Order.desc("ratingCount"));
+            case "newest" -> Sort.by(Sort.Order.desc("foundedAt"));
+            case "name" -> Sort.by(Sort.Order.asc("name"));
+            default -> Sort.by(Sort.Order.desc("memberCount"), Sort.Order.asc("name"));
+        };
+        Page<Group> found = groups.searchPublic(
+                GroupVisibility.PUBLIC,
+                GroupStatus.ACTIVE,
+                normalize(query),
+                normalize(categorySlug),
+                normalize(city),
+                PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100), ordering));
         return PageResponse.of(
                 found.getContent().stream().map(groupMapper::toSummary).toList(),
                 found.getNumber(), found.getSize(), found.getTotalElements());
+    }
+
+    private void requireViewable(Group group, Optional<UUID> actorId) {
+        if (group.getVisibility() == GroupVisibility.PUBLIC && group.getStatus() == GroupStatus.ACTIVE) {
+            return;
+        }
+        boolean activeMember = actorId
+                .flatMap(id -> memberships.findByGroupIdAndMemberId(group.getId(), id))
+                .map(GroupMembership::getStatus)
+                .filter(status -> status == GroupMembershipStatus.ACTIVE)
+                .isPresent();
+        if (!activeMember) {
+            throw NotFoundException.of("group", group.getId());
+        }
+    }
+
+    private static String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim().toLowerCase();
     }
 
     public GroupMemberSummary join(UUID actorId, UUID groupId, JoinGroupRequest request) {

@@ -74,7 +74,7 @@ class GroupControllerSecurityWebMvcTest {
         GroupDetail detail = new GroupDetail(UUID.randomUUID(), "backend-ro", "Backend RO",
                 null, new CategorySummary(UUID.randomUUID(), "tech", "Technology", null, 1),
                 null, null, null, "Europe/Bucharest", GroupVisibility.PUBLIC, GroupJoinPolicy.OPEN,
-                1, null, 0, Instant.now(), GroupStatus.ACTIVE, List.of());
+                1, null, 0, Instant.now(), GroupStatus.ACTIVE, List.of(), null, null, null);
         when(groups.create(eq(actorId), any())).thenReturn(detail);
 
         mvc.perform(post("/api/groups")
@@ -90,7 +90,8 @@ class GroupControllerSecurityWebMvcTest {
 
     @Test
     void browsingGroupsRequiresNoTokenAtAllEvenInsideTheSecuredSlice() throws Exception {
-        when(groups.list(0, 20)).thenReturn(PageResponse.of(List.of(), 0, 20, 0));
+        when(groups.list(0, 20, null, null, null, null))
+                .thenReturn(PageResponse.of(List.of(), 0, 20, 0));
 
         mvc.perform(get("/api/groups")).andExpect(status().isOk());
     }

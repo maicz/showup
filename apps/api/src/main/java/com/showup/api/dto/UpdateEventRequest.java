@@ -26,7 +26,7 @@ public record UpdateEventRequest(
         @Positive Integer capacity,
         boolean waitlistEnabled,
         @PositiveOrZero int guestsPerRsvpLimit,
-        @PositiveOrZero long feeAmountMinor,
+        @PositiveOrZero Long feeAmountMinor,
         @Pattern(regexp = "[A-Z]{3}") String feeCurrency,
         Instant rsvpOpensAt, Instant rsvpClosesAt) implements EventLocationAndSchedule {
 }

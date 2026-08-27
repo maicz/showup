@@ -4,9 +4,12 @@ import com.showup.api.dto.GeoPoint;
 import com.showup.api.dto.GroupDetail;
 import com.showup.api.dto.GroupMemberSummary;
 import com.showup.api.dto.GroupSummary;
+import com.showup.api.dto.MemberSummary;
 import com.showup.api.dto.TopicSummary;
 import com.showup.api.entity.Group;
 import com.showup.api.entity.GroupMembership;
+import com.showup.api.enums.GroupMemberRole;
+import com.showup.api.enums.GroupMembershipStatus;
 import com.showup.api.util.GeoPoints;
 import org.locationtech.jts.geom.Point;
 import org.mapstruct.Mapper;
@@ -22,15 +25,19 @@ public interface GroupMapper {
 
     @Mapping(target = "location", source = "location", qualifiedByName = "pointToGeoPoint")
     @Mapping(target = "topics", ignore = true)
+    @Mapping(target = "organizer", ignore = true)
+    @Mapping(target = "viewerRole", ignore = true)
+    @Mapping(target = "viewerStatus", ignore = true)
     GroupDetail toDetailWithoutTopics(Group group);
 
-    default GroupDetail toDetail(Group group, List<TopicSummary> topics) {
+    default GroupDetail toDetail(Group group, List<TopicSummary> topics, MemberSummary organizer,
+                                  GroupMemberRole viewerRole, GroupMembershipStatus viewerStatus) {
         GroupDetail base = toDetailWithoutTopics(group);
         return new GroupDetail(
                 base.id(), base.urlname(), base.name(), base.description(), base.category(),
                 base.city(), base.country(), base.location(), base.timeZone(), base.visibility(),
                 base.joinPolicy(), base.memberCount(), base.ratingAverage(), base.ratingCount(),
-                base.foundedAt(), base.status(), topics);
+                base.foundedAt(), base.status(), topics, organizer, viewerRole, viewerStatus);
     }
 
     @Mapping(target = "memberId", source = "member.id")

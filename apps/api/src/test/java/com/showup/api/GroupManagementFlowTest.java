@@ -171,6 +171,51 @@ class GroupManagementFlowTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.page").value(0));
     }
 
+    @Test
+    void publicDiscoverySearchesOnTheServerInsteadOfOnlyTheLoadedPage() throws Exception {
+        String organizer = register("organizer");
+        UUID groupId = createGroup(organizer, "OPEN");
+        String uniqueName = "Alpine Readers " + UUID.randomUUID();
+
+        mvc.perform(authed(put("/api/groups/" + groupId), organizer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","description":"Books above the clouds","categoryId":"%s",
+                                 "city":"Cluj-Napoca","country":"RO","timeZone":"Europe/Bucharest",
+                                 "visibility":"PUBLIC","joinPolicy":"OPEN"}"""
+                                .formatted(uniqueName, firstCategoryId())))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/groups")
+                        .param("query", uniqueName.toUpperCase())
+                        .param("city", "  CLUJ-NAPOCA ")
+                        .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(groupId.toString()));
+    }
+
+    @Test
+    void privateGroupsStayOutOfDiscoveryAndAwayFromNonMembers() throws Exception {
+        String organizer = register("organizer");
+        UUID groupId = createGroup(organizer, "OPEN");
+        String privateName = "Private Circle " + UUID.randomUUID();
+
+        mvc.perform(authed(put("/api/groups/" + groupId), organizer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","categoryId":"%s","timeZone":"Europe/Bucharest",
+                                 "visibility":"PRIVATE","joinPolicy":"INVITE_ONLY"}"""
+                                .formatted(privateName, firstCategoryId())))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/groups/" + groupId)).andExpect(status().isNotFound());
+        mvc.perform(authed(get("/api/groups/" + groupId), organizer)).andExpect(status().isOk());
+        mvc.perform(get("/api/groups").param("query", privateName))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
     // --- helpers ---
 
     private UUID createGroup(String token, String joinPolicy) throws Exception {

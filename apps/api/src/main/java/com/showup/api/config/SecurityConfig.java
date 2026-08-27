@@ -55,6 +55,8 @@ public class SecurityConfig {
                         // /api/events/{id} is public, /api/events/{id}/attendees is not.
                         .requestMatchers(HttpMethod.GET, "/api/events", "/api/events/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/events/*/feedback").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/events/*/comments").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/events/*/photos").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/groups", "/api/groups/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/groups/*/events", "/api/groups/by-urlname/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/*").permitAll()

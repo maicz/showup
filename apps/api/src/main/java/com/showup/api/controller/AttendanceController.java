@@ -48,6 +48,13 @@ public class AttendanceController {
         return attendance.checkIn(actor, eventId, request);
     }
 
+    /** Roster shortcut for door staff — no ticket code to scan, just the attendee's member id. */
+    @PostMapping("/check-ins/by-member/{memberId}")
+    public CheckInResponse checkInByMember(@CurrentMember UUID actor, @PathVariable UUID eventId,
+                                           @PathVariable UUID memberId) {
+        return attendance.checkInByMember(actor, eventId, memberId);
+    }
+
     @PostMapping("/tickets/{ticketId}/revoke")
     public TicketResponse revoke(@CurrentMember UUID actor, @PathVariable UUID eventId,
                                  @PathVariable UUID ticketId) {

@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -48,8 +49,12 @@ public class GroupController {
 
     @GetMapping
     public PageResponse<GroupSummary> list(@RequestParam(defaultValue = "0") int page,
-                                           @RequestParam(defaultValue = "20") int size) {
-        return groups.list(page, size);
+                                           @RequestParam(defaultValue = "20") int size,
+                                           @RequestParam(required = false) String query,
+                                           @RequestParam(required = false) String categorySlug,
+                                           @RequestParam(required = false) String city,
+                                           @RequestParam(required = false) String sort) {
+        return groups.list(page, size, query, categorySlug, city, sort);
     }
 
     @PostMapping
@@ -59,13 +64,13 @@ public class GroupController {
     }
 
     @GetMapping("/{id}")
-    public GroupDetail byId(@PathVariable UUID id) {
-        return groups.detail(id);
+    public GroupDetail byId(@CurrentMember Optional<UUID> actor, @PathVariable UUID id) {
+        return groups.detail(id, actor);
     }
 
     @GetMapping("/by-urlname/{urlname}")
-    public GroupDetail byUrlname(@PathVariable String urlname) {
-        return groups.detailByUrlname(urlname);
+    public GroupDetail byUrlname(@CurrentMember Optional<UUID> actor, @PathVariable String urlname) {
+        return groups.detailByUrlname(urlname, actor);
     }
 
     @PutMapping("/{id}")
