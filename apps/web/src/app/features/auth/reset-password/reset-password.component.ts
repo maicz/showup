@@ -18,36 +18,48 @@ import { ToastService } from '../../../core/services/toast.service';
 
         <form (ngSubmit)="onSubmit()">
           <div class="form-group">
-            <label class="form-label" for="token">Reset Token</label>
+            <label class="form-label" for="token">Reset Token <span class="required-star">*</span></label>
             <input
               type="text"
               id="token"
               name="token"
               class="form-control font-mono"
+              [class.is-invalid]="fieldErrors()['token']"
               [(ngModel)]="token"
+              (input)="clearFieldError('token')"
               required
               placeholder="Paste token received"
             />
+            @if (fieldErrors()['token']) {
+              <span class="form-error">{{ fieldErrors()['token'] }}</span>
+            }
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="newPassword">New Password</label>
+            <label class="form-label" for="newPassword">New Password <span class="required-star">*</span></label>
             <input
               type="password"
               id="newPassword"
               name="newPassword"
               class="form-control"
+              [class.is-invalid]="fieldErrors()['newPassword']"
               [(ngModel)]="newPassword"
+              (input)="clearFieldError('newPassword')"
               required
               minlength="8"
               placeholder="At least 8 characters"
             />
+            @if (fieldErrors()['newPassword']) {
+              <span class="form-error">{{ fieldErrors()['newPassword'] }}</span>
+            } @else {
+              <span class="form-hint">Must be at least 8 characters.</span>
+            }
           </div>
 
           <button
             type="submit"
             class="btn btn-primary btn-block"
-            [disabled]="loading() || !token || !newPassword || newPassword.length < 8"
+            [disabled]="loading()"
           >
             @if (loading()) {
               <span>Updating password...</span>
@@ -99,6 +111,15 @@ export class ResetPasswordComponent {
   token = '';
   newPassword = '';
   readonly loading = signal(false);
+  readonly fieldErrors = signal<Record<string, string>>({});
+
+  clearFieldError(field: string) {
+    this.fieldErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      return copy;
+    });
+  }
 
   ngOnInit() {
     if (this.tokenQuery()) {
@@ -107,16 +128,41 @@ export class ResetPasswordComponent {
   }
 
   onSubmit() {
-    if (!this.token || !this.newPassword) return;
+    this.fieldErrors.set({});
+
+    const errors: Record<string, string> = {};
+    if (!this.token.trim()) {
+      errors['token'] = 'Reset token is required';
+    }
+
+    if (!this.newPassword) {
+      errors['newPassword'] = 'New password is required';
+    } else if (this.newPassword.length < 8) {
+      errors['newPassword'] = 'Password must be at least 8 characters';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      this.fieldErrors.set(errors);
+      return;
+    }
+
     this.loading.set(true);
 
     this.auth.resetPassword({ token: this.token, newPassword: this.newPassword }).subscribe({
       next: () => {
         this.loading.set(false);
+        this.toast.success('Password updated successfully! Please sign in.');
         this.router.navigate(['/login']);
       },
       error: err => {
         this.loading.set(false);
+        if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+          const backendErrors: Record<string, string> = {};
+          for (const fe of err.error.fieldErrors) {
+            backendErrors[fe.field] = fe.message;
+          }
+          this.fieldErrors.set(backendErrors);
+        }
         this.toast.error(err?.error?.message || 'Invalid or expired reset token');
       },
     });

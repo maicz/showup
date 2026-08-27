@@ -19,49 +19,66 @@ import { ToastService } from '../../../core/services/toast.service';
 
         <form (ngSubmit)="onSubmit()" #registerForm="ngForm">
           <div class="form-group">
-            <label class="form-label" for="displayName">Your Name</label>
+            <label class="form-label" for="displayName">Your Name <span class="required-star">*</span></label>
             <input
               type="text"
               id="displayName"
               name="displayName"
               class="form-control"
+              [class.is-invalid]="fieldErrors()['displayName']"
               [(ngModel)]="displayName"
+              (input)="clearFieldError('displayName')"
               required
               placeholder="e.g. Alex Morgan"
             />
+            @if (fieldErrors()['displayName']) {
+              <span class="form-error">{{ fieldErrors()['displayName'] }}</span>
+            }
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="email">Email address</label>
+            <label class="form-label" for="email">Email address <span class="required-star">*</span></label>
             <input
               type="email"
               id="email"
               name="email"
               class="form-control"
+              [class.is-invalid]="fieldErrors()['email']"
               [(ngModel)]="email"
+              (input)="clearFieldError('email')"
               required
               placeholder="you@example.com"
             />
+            @if (fieldErrors()['email']) {
+              <span class="form-error">{{ fieldErrors()['email'] }}</span>
+            }
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="password">Password</label>
+            <label class="form-label" for="password">Password <span class="required-star">*</span></label>
             <input
               type="password"
               id="password"
               name="password"
               class="form-control"
+              [class.is-invalid]="fieldErrors()['password']"
               [(ngModel)]="password"
+              (input)="clearFieldError('password')"
               required
               minlength="8"
               placeholder="At least 8 characters"
             />
+            @if (fieldErrors()['password']) {
+              <span class="form-error">{{ fieldErrors()['password'] }}</span>
+            } @else {
+              <span class="form-hint">Must be at least 8 characters.</span>
+            }
           </div>
 
           <button
             type="submit"
             class="btn btn-primary btn-block"
-            [disabled]="loading() || !displayName || !email || !password || password.length < 8"
+            [disabled]="loading()"
           >
             @if (loading()) {
               <span>Creating account...</span>
@@ -141,9 +158,41 @@ export class RegisterComponent {
   email = '';
   password = '';
   readonly loading = signal(false);
+  readonly fieldErrors = signal<Record<string, string>>({});
+
+  clearFieldError(field: string) {
+    this.fieldErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      return copy;
+    });
+  }
 
   onSubmit() {
-    if (!this.displayName || !this.email || !this.password) return;
+    this.fieldErrors.set({});
+
+    const errors: Record<string, string> = {};
+    if (!this.displayName.trim()) {
+      errors['displayName'] = 'Your name is required';
+    }
+
+    if (!this.email.trim()) {
+      errors['email'] = 'Email address is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email.trim())) {
+      errors['email'] = 'Please enter a valid email address';
+    }
+
+    if (!this.password) {
+      errors['password'] = 'Password is required';
+    } else if (this.password.length < 8) {
+      errors['password'] = 'Password must be at least 8 characters';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      this.fieldErrors.set(errors);
+      return;
+    }
+
     this.loading.set(true);
 
     this.auth
@@ -159,6 +208,13 @@ export class RegisterComponent {
         },
         error: err => {
           this.loading.set(false);
+          if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+            const backendErrors: Record<string, string> = {};
+            for (const fe of err.error.fieldErrors) {
+              backendErrors[fe.field] = fe.message;
+            }
+            this.fieldErrors.set(backendErrors);
+          }
           this.toast.error(err?.error?.message || 'Registration failed');
         },
       });

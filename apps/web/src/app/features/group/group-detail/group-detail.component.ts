@@ -48,7 +48,13 @@ import { ToastService } from '../../../core/services/toast.service';
                     + Host Event
                   </a>
                 }
-                <button class="btn btn-sm btn-outline" (click)="leaveGroup()">Leave Group</button>
+                <button
+                  class="btn btn-sm btn-outline"
+                  [disabled]="leavingGroup()"
+                  (click)="leaveGroup()"
+                >
+                  {{ leavingGroup() ? 'Leaving...' : 'Leave Group' }}
+                </button>
               } @else if (group()!.viewerStatus === 'PENDING_APPROVAL') {
                 <span class="badge badge-warning">Membership Pending Approval</span>
               } @else {
@@ -346,6 +352,7 @@ export class GroupDetailComponent implements OnInit {
   readonly loading = signal(true);
   readonly activeTab = signal<'about' | 'events' | 'members'>('about');
   readonly showJoinModal = signal(false);
+  readonly leavingGroup = signal(false);
 
   joinIntro = '';
 
@@ -415,13 +422,21 @@ export class GroupDetailComponent implements OnInit {
   }
 
   leaveGroup() {
+    if (!confirm('Are you sure you want to leave this group?')) {
+      return;
+    }
+    this.leavingGroup.set(true);
     this.groupService.leaveGroup(this.id()).subscribe({
       next: () => {
+        this.leavingGroup.set(false);
         this.toast.info('You have left the group.');
         this.members.set([]);
         this.loadGroup();
       },
-      error: err => this.toast.error(err?.error?.message || 'Could not leave group'),
+      error: err => {
+        this.leavingGroup.set(false);
+        this.toast.error(err?.error?.message || 'Could not leave group');
+      },
     });
   }
 }

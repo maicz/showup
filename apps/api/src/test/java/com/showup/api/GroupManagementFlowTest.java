@@ -80,6 +80,24 @@ class GroupManagementFlowTest extends ApiIntegrationTest {
     }
 
     @Test
+    void decliningAPendingMembershipTransitionsStatusToLeft() throws Exception {
+        String organizer = register("organizer");
+        UUID groupId = createGroup(organizer, "APPROVAL_REQUIRED");
+        String applicant = register("applicant");
+        MvcResult joined = mvc.perform(authed(post("/api/groups/" + groupId + "/members"), applicant)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andReturn();
+        UUID applicantId = UUID.fromString(read(joined).get("memberId").asString());
+
+        mvc.perform(authed(post("/api/groups/" + groupId + "/members/" + applicantId + "/decline"), organizer))
+                .andExpect(status().isNoContent());
+
+        // Pending list should now be empty
+        mvc.perform(authed(get("/api/groups/" + groupId + "/members").param("status", "PENDING_APPROVAL"), organizer))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
     void anInviteOnlyGroupRefusesASelfServeJoin() throws Exception {
         String organizer = register("organizer");
         UUID groupId = createGroup(organizer, "INVITE_ONLY");

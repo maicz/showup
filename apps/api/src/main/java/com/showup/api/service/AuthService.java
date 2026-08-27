@@ -114,16 +114,25 @@ public class AuthService {
     }
 
     public MessageResponse resetPassword(ResetPasswordRequest request) {
-        UUID memberId = verifyActionToken(request.token(), "reset-password");
+        Jwt jwt = decodeActionToken(request.token(), "reset-password");
+        UUID memberId = UUID.fromString(jwt.getSubject());
         Member member = members.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("member not found"));
 
+        Instant tokenIssuedAt = jwt.getIssuedAt();
+        if (member.getPasswordUpdatedAt() != null && tokenIssuedAt != null
+                && !tokenIssuedAt.isAfter(member.getPasswordUpdatedAt())) {
+            throw new BusinessRuleException("password reset token has already been used or is expired");
+        }
+
         member.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        member.setPasswordUpdatedAt(Instant.now());
         return new MessageResponse("Password has been reset successfully. You may now sign in.");
     }
 
     public MessageResponse verifyEmail(VerifyEmailRequest request) {
-        UUID memberId = verifyActionToken(request.token(), "verify-email");
+        Jwt jwt = decodeActionToken(request.token(), "verify-email");
+        UUID memberId = UUID.fromString(jwt.getSubject());
         Member member = members.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("member not found"));
 
@@ -153,14 +162,16 @@ public class AuthService {
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
 
-    private UUID verifyActionToken(String token, String expectedPurpose) {
+    private Jwt decodeActionToken(String token, String expectedPurpose) {
         try {
             Jwt jwt = jwtDecoder.decode(token);
             String purpose = jwt.getClaimAsString("purpose");
             if (!expectedPurpose.equals(purpose)) {
                 throw new BusinessRuleException("invalid token purpose");
             }
-            return UUID.fromString(jwt.getSubject());
+            return jwt;
+        } catch (BusinessRuleException ex) {
+            throw ex;
         } catch (Exception ex) {
             throw new BusinessRuleException("token is invalid or has expired");
         }

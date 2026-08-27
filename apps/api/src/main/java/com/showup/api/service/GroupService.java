@@ -249,6 +249,17 @@ public class GroupService {
         return groupMapper.toMemberSummary(target);
     }
 
+    /** Declines a {@code PENDING_APPROVAL} membership request. */
+    public void declineMember(UUID actorId, UUID groupId, UUID memberId) {
+        guard.requireGroupAdmin(groupId, actorId);
+        GroupMembership target = memberships.findByGroupIdAndMemberId(groupId, memberId)
+                .orElseThrow(() -> new NotFoundException("member " + memberId + " is not in this group"));
+        if (target.getStatus() != GroupMembershipStatus.PENDING_APPROVAL) {
+            throw new BusinessRuleException("membership is " + target.getStatus() + ", not PENDING_APPROVAL");
+        }
+        target.setStatus(GroupMembershipStatus.LEFT);
+    }
+
     Group require(UUID groupId) {
         return groups.findById(groupId).orElseThrow(() -> NotFoundException.of("group", groupId));
     }

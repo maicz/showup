@@ -23,21 +23,29 @@ import { TopicService } from '../../../core/services/topic.service';
       <div class="card form-card">
         <form (ngSubmit)="onSubmit()">
           <div class="form-group">
-            <label class="form-label" for="name">Group Name</label>
+            <label class="form-label" for="name">
+              Group Name <span class="required-star">*</span>
+            </label>
             <input
               type="text"
               id="name"
               name="name"
               class="form-control"
+              [class.is-invalid]="groupFieldErrors()['name']"
               [(ngModel)]="name"
-              (input)="generateSlug()"
+              (input)="clearGroupFieldError('name'); generateSlug()"
               required
               placeholder="e.g. Cluj Java & Cloud Native Community"
             />
+            @if (groupFieldErrors()['name']) {
+              <span class="form-error">{{ groupFieldErrors()['name'] }}</span>
+            }
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="urlname">URL Slug</label>
+            <label class="form-label" for="urlname">
+              URL Slug <span class="required-star">*</span>
+            </label>
             <div class="input-prefix-row">
               <span class="prefix">showup.app/groups/</span>
               <input
@@ -45,29 +53,41 @@ import { TopicService } from '../../../core/services/topic.service';
                 id="urlname"
                 name="urlname"
                 class="form-control"
+                [class.is-invalid]="groupFieldErrors()['urlname']"
                 [(ngModel)]="urlname"
+                (input)="clearGroupFieldError('urlname')"
                 required
                 placeholder="cluj-java-community"
               />
             </div>
-            <span class="form-hint">Unique identifier for your group URL.</span>
+            @if (groupFieldErrors()['urlname']) {
+              <span class="form-error">{{ groupFieldErrors()['urlname'] }}</span>
+            } @else {
+              <span class="form-hint">Unique identifier for your group URL.</span>
+            }
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="category">Primary Category</label>
+            <label class="form-label" for="category">
+              Primary Category <span class="required-star">*</span>
+            </label>
             <select
               id="category"
               name="category"
               class="form-select"
+              [class.is-invalid]="groupFieldErrors()['categoryId']"
               [(ngModel)]="selectedCategoryId"
               required
-              (change)="onCategoryChange()"
+              (change)="clearGroupFieldError('categoryId'); onCategoryChange()"
             >
               <option value="" disabled>Select category</option>
               @for (cat of categories(); track cat.id) {
                 <option [value]="cat.id">{{ cat.name }}</option>
               }
             </select>
+            @if (groupFieldErrors()['categoryId']) {
+              <span class="form-error">{{ groupFieldErrors()['categoryId'] }}</span>
+            }
           </div>
 
           @if (topics().length > 0) {
@@ -138,16 +158,23 @@ import { TopicService } from '../../../core/services/topic.service';
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="description">Group Description</label>
+            <label class="form-label" for="description">
+              Group Description <span class="required-star">*</span>
+            </label>
             <textarea
               id="description"
               name="description"
               class="form-control"
+              [class.is-invalid]="groupFieldErrors()['description']"
               [(ngModel)]="description"
+              (input)="clearGroupFieldError('description')"
               rows="5"
               required
               placeholder="Describe your community's purpose, what members can expect, and guidelines..."
             ></textarea>
+            @if (groupFieldErrors()['description']) {
+              <span class="form-error">{{ groupFieldErrors()['description'] }}</span>
+            }
           </div>
 
           <div class="form-actions">
@@ -155,7 +182,7 @@ import { TopicService } from '../../../core/services/topic.service';
             <button
               type="submit"
               class="btn btn-primary btn-lg"
-              [disabled]="saving() || !name || !urlname || !selectedCategoryId || !description"
+              [disabled]="saving()"
             >
               @if (saving()) {
                 <span>Creating Group...</span>
@@ -224,6 +251,7 @@ export class GroupCreateComponent implements OnInit {
   readonly topics = signal<TopicSummary[]>([]);
   readonly selectedTopicIds = signal<string[]>([]);
   readonly saving = signal(false);
+  readonly groupFieldErrors = signal<Record<string, string>>({});
 
   name = '';
   urlname = '';
@@ -234,6 +262,14 @@ export class GroupCreateComponent implements OnInit {
   joinPolicy: GroupJoinPolicy = 'OPEN';
   visibility: GroupVisibility = 'PUBLIC';
   timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+  clearGroupFieldError(field: string) {
+    this.groupFieldErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      return copy;
+    });
+  }
 
   ngOnInit() {
     this.topicService.getCategories().subscribe({
@@ -267,7 +303,20 @@ export class GroupCreateComponent implements OnInit {
   }
 
   onSubmit() {
-    if (!this.name || !this.urlname || !this.selectedCategoryId || !this.description) return;
+    this.groupFieldErrors.set({});
+
+    const errors: Record<string, string> = {};
+    if (!this.name.trim()) errors['name'] = 'Group name is required';
+    if (!this.urlname.trim()) errors['urlname'] = 'Group URL slug is required';
+    if (!this.selectedCategoryId) errors['categoryId'] = 'Please select a primary category';
+    if (!this.description.trim()) errors['description'] = 'Group description is required';
+
+    if (Object.keys(errors).length > 0) {
+      this.groupFieldErrors.set(errors);
+      this.toast.error('Please fill in all required fields.');
+      return;
+    }
+
     this.saving.set(true);
 
     this.groupService
@@ -291,6 +340,13 @@ export class GroupCreateComponent implements OnInit {
         },
         error: err => {
           this.saving.set(false);
+          if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+            const backendErrors: Record<string, string> = {};
+            for (const fe of err.error.fieldErrors) {
+              backendErrors[fe.field] = fe.message;
+            }
+            this.groupFieldErrors.set(backendErrors);
+          }
           this.toast.error(err?.error?.message || 'Failed to create group');
         },
       });

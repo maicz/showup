@@ -52,59 +52,45 @@ This document organizes all audit findings and remaining engineering tasks by pr
 
 ---
 
-## Priority 2 (P2) — Frontend Form Validation & Usability
+## Priority 2 (P2) — Frontend Form Validation & Usability [COMPLETED]
 
 ### 1. Replace Silent `[disabled]` Buttons with Inline Form Feedback
 - **Location**:
-  - [`login.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/login/login.component.ts#L53)
-  - [`register.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/register/register.component.ts#L64)
-  - [`reset-password.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/reset-password/reset-password.component.ts#L50)
-  - [`group-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-create/group-create.component.ts#L158)
-  - [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts#L247)
-- **Issue**: Buttons are disabled silently when validation fails (e.g. password < 8 chars, invalid email, unselected category). Users receive no indication of what field is incomplete or invalid.
-- **Fix**:
-  - Add visual validation feedback (`is-invalid` CSS class on inputs, `<span class="form-error">` helper messages on blur/dirty states).
-  - Clearly describe password requirements ("Minimum 8 characters") and required field indicators (`*`).
+  - [`login.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/login/login.component.ts)
+  - [`register.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/register/register.component.ts)
+  - [`reset-password.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/reset-password/reset-password.component.ts)
+  - [`forgot-password.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/forgot-password/forgot-password.component.ts)
+  - [`group-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-create/group-create.component.ts)
+  - [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts)
+  - [`profile.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/profile/profile.component.ts)
+- **Status**: Completed. Removed silent button disabling; added visual indicators (`*`), `.is-invalid` highlighting, and `<span class="form-error">` inline error messages with active validation upon submit and dynamic clearing upon input.
 
 ### 2. Bind Server-Side `fieldErrors` to Form Controls
 - **Location**: All forms across `auth/`, `group/`, `event/`, and `profile/`.
-- **Issue**: When backend Bean Validation fails (HTTP 400), Spring returns `fieldErrors: [{ field: "email", message: "must be a well-formed email address" }]`. The UI ignores these errors and displays only a generic toast message.
-- **Fix**:
-  - Replicate the `venueFieldErrors` pattern from `EventCreateComponent.saveNewVenue` across all forms to highlight invalid fields and render backend messages directly beneath the corresponding inputs.
+- **Status**: Completed. Extended all submission error handlers to inspect `err?.error?.fieldErrors`, mapping backend Bean Validation violations directly to form fields for inline display.
 
 ### 3. Add Missing "Decline / Reject" Action in Organizer Console
-- **Location**: [`group-manage.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-manage/group-manage.component.ts#L48), [`GroupService.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/service/GroupService.java)
-- **Issue**: The Pending Join Requests list only provides an "Approve Member" button. Organizers cannot decline or reject a join request.
-- **Fix**:
-  - Add a `declineMember(groupId, memberId)` service method and endpoint (`DELETE /api/groups/{id}/members/{memberId}` or status transition to `LEFT`/`REJECTED`).
-  - Add a "Decline" button next to "Approve" with confirmation in `GroupManageComponent`.
+- **Location**: [`group-manage.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-manage/group-manage.component.ts), [`GroupService.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/service/GroupService.java), [`GroupController.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/controller/GroupController.java), [`group.service.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/core/services/group.service.ts)
+- **Status**: Completed. Added `POST /api/groups/{id}/members/{memberId}/decline` endpoint transitioning `PENDING_APPROVAL` status to `LEFT`. Added frontend service method and Decline button with confirmation dialog and list refreshment.
 
 ### 4. Add Admission Fee Inputs to Event Creator
-- **Location**: [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts#L881)
-- **Issue**: Fee is hardcoded to `0` / `'USD'`. Organizers cannot set admission ticket prices.
-- **Fix**:
-  - Add a "Ticket Price" input (amount + currency selector) in `EventCreateComponent`.
+- **Location**: [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts)
+- **Status**: Completed. Added Ticket Price (`feeAmount`) and Currency (`feeCurrency`) form controls to the event creation template, converting amount to minor units (`feeAmountMinor`) in the create event request.
 
 ### 5. Fix Local Time Zone Drift in Event Date Picker
-- **Location**: [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts#L828)
-- **Issue**: `<input type="datetime-local">` strings are parsed with `new Date(startsAtStr).toISOString()`, which applies the browser's local timezone offset instead of the event's selected `timeZone`.
-- **Fix**:
-  - Parse the datetime string in the context of the selected IANA `timeZone` before converting to UTC ISO string.
+- **Location**: [`date.utils.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/core/utils/date.utils.ts), [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts)
+- **Status**: Completed. Created `localDateTimeToUtcIso` utility with full unit test coverage using `Intl.DateTimeFormat` to resolve local timezone offsets relative to the event's selected IANA timezone, preventing browser timezone drift.
 
 ### 6. Add In-Flight Request Disabling & Destructive Confirmations
 - **Location**:
-  - [`group-detail.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-detail/group-detail.component.ts#L398): `leaveGroup()` has no confirmation dialog.
-  - [`event-detail.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-detail/event-detail.component.ts#L979): `cancelRsvp()`, `deleteComment()`, `publishEvent()` lack in-flight loading guards.
-  - [`staff-management.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/attendance/staff/staff-management.component.ts#L235): `removeStaff()` triggers immediately without confirmation.
-- **Fix**:
-  - Add confirmation dialogs before leaving groups or removing staff.
-  - Add `loading` / `disabled` states to prevent double-click submissions.
+  - [`group-detail.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-detail/group-detail.component.ts): Added confirmation dialog and `leavingGroup` in-flight signal and disabled state.
+  - [`event-detail.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-detail/event-detail.component.ts): Added confirmation dialogs and in-flight guards (`cancellingRsvp`, `deletingCommentId`, `publishingEvent`).
+  - [`staff-management.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/attendance/staff/staff-management.component.ts): Added confirmation dialog and `removingStaffId` disabled state.
+- **Status**: Completed.
 
 ### 7. Password Reset Token Single-Use Revocation
-- **Location**: [`AuthService.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/service/AuthService.java#L116-L123)
-- **Issue**: Password reset tokens are stateless JWTs that remain valid for their full 2-hour TTL even after being used.
-- **Fix**:
-  - Invalidate reset tokens upon successful password update (e.g. by comparing token issue timestamp against `member.passwordUpdatedAt` or a version/nonce).
+- **Location**: [`AuthService.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/service/AuthService.java), [`Member.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/entity/Member.java), [`V8__add_password_updated_at_to_member.sql`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/resources/db/migration/V8__add_password_updated_at_to_member.sql)
+- **Status**: Completed. Created Flyway migration V8 adding `password_updated_at` column to `member`. Enforced in `AuthService.decodeActionToken` and `resetPassword` by rejecting any token issued before `member.passwordUpdatedAt`. Tested and verified with unit tests.
 
 ---
 

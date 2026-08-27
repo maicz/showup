@@ -9,6 +9,7 @@ import { EventService } from '../../../core/services/event.service';
 import { MemberService } from '../../../core/services/member.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { VenueService } from '../../../core/services/venue.service';
+import { localDateTimeToUtcIso } from '../../../core/utils/date.utils';
 
 @Component({
   selector: 'app-event-create',
@@ -61,34 +62,47 @@ import { VenueService } from '../../../core/services/venue.service';
         <form (ngSubmit)="onSubmit()">
           <!-- Group Selection -->
           <div class="form-group">
-            <label class="form-label" for="group">Hosting Group</label>
+            <label class="form-label" for="group">
+              Hosting Group <span class="required-star">*</span>
+            </label>
             <select
               id="group"
               class="form-select"
+              [class.is-invalid]="eventFieldErrors()['groupId']"
               [(ngModel)]="selectedGroupId"
               name="group"
               required
-              (change)="onGroupChange()"
+              (change)="clearEventFieldError('groupId'); onGroupChange()"
             >
               <option value="" disabled>Select a group you organize</option>
               @for (g of myGroups(); track g.id) {
                 <option [value]="g.id">{{ g.name }}</option>
               }
             </select>
+            @if (eventFieldErrors()['groupId']) {
+              <span class="form-error">{{ eventFieldErrors()['groupId'] }}</span>
+            }
           </div>
 
           <!-- Title -->
           <div class="form-group">
-            <label class="form-label" for="title">Event Title</label>
+            <label class="form-label" for="title">
+              Event Title <span class="required-star">*</span>
+            </label>
             <input
               type="text"
               id="title"
               name="title"
               class="form-control"
+              [class.is-invalid]="eventFieldErrors()['title']"
               [(ngModel)]="title"
+              (input)="clearEventFieldError('title')"
               required
               placeholder="e.g. Spring Boot & AI Meetup #12"
             />
+            @if (eventFieldErrors()['title']) {
+              <span class="form-error">{{ eventFieldErrors()['title'] }}</span>
+            }
           </div>
 
           <!-- Format -->
@@ -105,47 +119,73 @@ import { VenueService } from '../../../core/services/venue.service';
           @if (format !== 'ONLINE') {
             <div class="form-group">
               <div class="venue-label-row">
-                <label class="form-label" for="venue">Venue</label>
+                <label class="form-label" for="venue">
+                  Venue <span class="required-star">*</span>
+                </label>
                 <button type="button" class="btn btn-sm btn-subtle" (click)="openNewVenueModal()">
                   + Add New Venue
                 </button>
               </div>
-              <select id="venue" class="form-select" [(ngModel)]="selectedVenueId" name="venue">
+              <select
+                id="venue"
+                class="form-select"
+                [class.is-invalid]="eventFieldErrors()['venueId']"
+                [(ngModel)]="selectedVenueId"
+                (change)="clearEventFieldError('venueId')"
+                name="venue"
+              >
                 <option value="">Select a saved venue</option>
                 @for (v of venues(); track v.id) {
                   <option [value]="v.id">{{ v.name }} ({{ v.address.city || 'Local' }})</option>
                 }
               </select>
+              @if (eventFieldErrors()['venueId']) {
+                <span class="form-error">{{ eventFieldErrors()['venueId'] }}</span>
+              }
             </div>
           }
 
           <!-- Online URL (for online or hybrid) -->
           @if (format !== 'IN_PERSON') {
             <div class="form-group">
-              <label class="form-label" for="onlineUrl">Online Meeting URL</label>
+              <label class="form-label" for="onlineUrl">
+                Online Meeting URL <span class="required-star">*</span>
+              </label>
               <input
                 type="url"
                 id="onlineUrl"
                 name="onlineUrl"
                 class="form-control"
+                [class.is-invalid]="eventFieldErrors()['onlineUrl']"
                 [(ngModel)]="onlineUrl"
+                (input)="clearEventFieldError('onlineUrl')"
                 placeholder="https://meet.google.com/xyz or Zoom link"
               />
+              @if (eventFieldErrors()['onlineUrl']) {
+                <span class="form-error">{{ eventFieldErrors()['onlineUrl'] }}</span>
+              }
             </div>
           }
 
           <!-- Timing Row -->
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="startsAt">Start Date & Time</label>
+              <label class="form-label" for="startsAt">
+                Start Date & Time <span class="required-star">*</span>
+              </label>
               <input
                 type="datetime-local"
                 id="startsAt"
                 name="startsAt"
                 class="form-control"
+                [class.is-invalid]="eventFieldErrors()['startsAt']"
                 [(ngModel)]="startsAtStr"
+                (input)="clearEventFieldError('startsAt')"
                 required
               />
+              @if (eventFieldErrors()['startsAt']) {
+                <span class="form-error">{{ eventFieldErrors()['startsAt'] }}</span>
+              }
             </div>
 
             <div class="form-group">
@@ -155,8 +195,13 @@ import { VenueService } from '../../../core/services/venue.service';
                 id="endsAt"
                 name="endsAt"
                 class="form-control"
+                [class.is-invalid]="eventFieldErrors()['endsAt']"
                 [(ngModel)]="endsAtStr"
+                (input)="clearEventFieldError('endsAt')"
               />
+              @if (eventFieldErrors()['endsAt']) {
+                <span class="form-error">{{ eventFieldErrors()['endsAt'] }}</span>
+              }
             </div>
           </div>
 
@@ -183,6 +228,43 @@ import { VenueService } from '../../../core/services/venue.service';
               rows="6"
               placeholder="What will happen at this event? Agenda, requirements..."
             ></textarea>
+          </div>
+
+          <!-- Admission Fee / Ticket Pricing -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="feeAmount">Ticket Price</label>
+              <input
+                type="number"
+                id="feeAmount"
+                name="feeAmount"
+                class="form-control"
+                [class.is-invalid]="eventFieldErrors()['feeAmount']"
+                [(ngModel)]="feeAmount"
+                (input)="clearEventFieldError('feeAmount')"
+                min="0"
+                step="0.01"
+                placeholder="0.00 (Free event)"
+              />
+              @if (eventFieldErrors()['feeAmount']) {
+                <span class="form-error">{{ eventFieldErrors()['feeAmount'] }}</span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="feeCurrency">Currency</label>
+              <select
+                id="feeCurrency"
+                name="feeCurrency"
+                class="form-select"
+                [(ngModel)]="feeCurrency"
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="RON">RON (lei)</option>
+              </select>
+            </div>
           </div>
 
           <!-- Capacity & Guests & Waitlist -->
@@ -244,7 +326,7 @@ import { VenueService } from '../../../core/services/venue.service';
             <button
               type="submit"
               class="btn btn-primary btn-lg"
-              [disabled]="saving() || !selectedGroupId || !title || !startsAtStr"
+              [disabled]="saving()"
             >
               @if (saving()) {
                 <span>Creating Event...</span>
@@ -617,6 +699,19 @@ export class EventCreateComponent implements OnInit {
   isRecurring = false;
   recurrenceFreq = 'FREQ=WEEKLY;INTERVAL=1';
 
+  feeAmount = 0;
+  feeCurrency = 'USD';
+
+  readonly eventFieldErrors = signal<Record<string, string>>({});
+
+  clearEventFieldError(field: string) {
+    this.eventFieldErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      return copy;
+    });
+  }
+
   // Venue Modal state & fields
   newVenueName = '';
   newVenueAddressLine1 = '';
@@ -822,11 +917,32 @@ export class EventCreateComponent implements OnInit {
   }
 
   onSubmit() {
-    if (!this.selectedGroupId || !this.title || !this.startsAtStr) return;
+    this.eventFieldErrors.set({});
+
+    const errors: Record<string, string> = {};
+    if (!this.selectedGroupId) errors['groupId'] = 'Please select a hosting group';
+    if (!this.title.trim()) errors['title'] = 'Event title is required';
+    if (!this.startsAtStr) errors['startsAt'] = 'Start date and time is required';
+    if (this.format !== 'ONLINE' && !this.selectedVenueId) {
+      errors['venueId'] = 'Please select or add a venue for in-person events';
+    }
+    if (this.format !== 'IN_PERSON' && !this.onlineUrl?.trim()) {
+      errors['onlineUrl'] = 'Please provide an online meeting link';
+    }
+    if (this.feeAmount < 0) {
+      errors['feeAmount'] = 'Ticket price cannot be negative';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      this.eventFieldErrors.set(errors);
+      this.toast.error('Please fix the highlighted fields in the form.');
+      return;
+    }
+
     this.saving.set(true);
 
-    const startsAtIso = new Date(this.startsAtStr).toISOString();
-    const endsAtIso = this.endsAtStr ? new Date(this.endsAtStr).toISOString() : undefined;
+    const startsAtIso = localDateTimeToUtcIso(this.startsAtStr, this.timeZone);
+    const endsAtIso = this.endsAtStr ? localDateTimeToUtcIso(this.endsAtStr, this.timeZone) : undefined;
 
     if (this.isRecurring) {
       this.eventService
@@ -859,6 +975,13 @@ export class EventCreateComponent implements OnInit {
           },
           error: err => {
             this.saving.set(false);
+            if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+              const backendFieldErrors: Record<string, string> = {};
+              for (const fe of err.error.fieldErrors) {
+                backendFieldErrors[fe.field] = fe.message;
+              }
+              this.eventFieldErrors.set(backendFieldErrors);
+            }
             this.toast.error(err?.error?.message || 'Failed to create recurring series');
           },
         });
@@ -878,8 +1001,8 @@ export class EventCreateComponent implements OnInit {
         capacity: this.capacity || undefined,
         waitlistEnabled: this.waitlistEnabled,
         guestsPerRsvpLimit: this.guestsPerRsvpLimit,
-        feeAmountMinor: 0,
-        feeCurrency: 'USD',
+        feeAmountMinor: Math.round((this.feeAmount || 0) * 100),
+        feeCurrency: this.feeCurrency,
       })
       .subscribe({
         next: created => {
@@ -897,6 +1020,13 @@ export class EventCreateComponent implements OnInit {
         },
         error: err => {
           this.saving.set(false);
+          if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+            const backendFieldErrors: Record<string, string> = {};
+            for (const fe of err.error.fieldErrors) {
+              backendFieldErrors[fe.field] = fe.message;
+            }
+            this.eventFieldErrors.set(backendFieldErrors);
+          }
           this.toast.error(err?.error?.message || 'Failed to create event');
         },
       });

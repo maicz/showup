@@ -113,6 +113,13 @@ public class GroupController {
         return groups.approveMember(actor, id, memberId);
     }
 
+    @PostMapping("/{id}/members/{memberId}/decline")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void decline(@CurrentMember UUID actor, @PathVariable UUID id,
+                        @PathVariable UUID memberId) {
+        groups.declineMember(actor, id, memberId);
+    }
+
     // --- owned resources ---
 
     @GetMapping("/{id}/venues")

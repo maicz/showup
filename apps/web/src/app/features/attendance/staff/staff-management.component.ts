@@ -99,8 +99,12 @@ import { ToastService } from '../../../core/services/toast.service';
                     <strong>{{ s.member.displayName }}</strong>
                     <div><span class="badge badge-info">{{ s.role }}</span></div>
                   </div>
-                  <button class="btn btn-sm btn-subtle delete-btn" (click)="removeStaff(s.id)">
-                    ✕ Remove
+                  <button
+                    class="btn btn-sm btn-subtle delete-btn"
+                    [disabled]="removingStaffId() === s.id"
+                    (click)="removeStaff(s.id, s.member.displayName)"
+                  >
+                    {{ removingStaffId() === s.id ? 'Removing...' : '✕ Remove' }}
                   </button>
                 </div>
                 @if (s.notes) {
@@ -184,6 +188,7 @@ export class StaffManagementComponent implements OnInit {
   readonly staffList = signal<StaffAssignmentSummary[]>([]);
   readonly groupMembers = signal<GroupMemberSummary[]>([]);
   readonly assigning = signal(false);
+  readonly removingStaffId = signal<string | null>(null);
 
   selectedMemberId = '';
   selectedRole: StaffRole = 'SCANNER';
@@ -232,13 +237,23 @@ export class StaffManagementComponent implements OnInit {
       });
   }
 
-  removeStaff(assignmentId: string) {
+  removeStaff(assignmentId: string, memberName?: string) {
+    const label = memberName
+      ? `Are you sure you want to remove ${memberName} from event staff?`
+      : 'Are you sure you want to remove this staff assignment?';
+    if (!confirm(label)) return;
+
+    this.removingStaffId.set(assignmentId);
     this.attendanceService.removeStaff(this.id(), assignmentId).subscribe({
       next: () => {
+        this.removingStaffId.set(null);
         this.staffList.update(list => list.filter(s => s.id !== assignmentId));
         this.toast.info('Staff role assignment removed');
       },
-      error: err => this.toast.error(err?.error?.message || 'Could not remove staff assignment'),
+      error: err => {
+        this.removingStaffId.set(null);
+        this.toast.error(err?.error?.message || 'Could not remove staff assignment');
+      },
     });
   }
 }

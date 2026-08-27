@@ -19,21 +19,26 @@ import { ToastService } from '../../../core/services/toast.service';
 
         <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
           <div class="form-group">
-            <label class="form-label" for="email">Email address</label>
+            <label class="form-label" for="email">Email address <span class="required-star">*</span></label>
             <input
               type="email"
               id="email"
               name="email"
               class="form-control"
+              [class.is-invalid]="fieldErrors()['email']"
               [(ngModel)]="email"
+              (input)="clearFieldError('email')"
               required
               placeholder="you@example.com"
             />
+            @if (fieldErrors()['email']) {
+              <span class="form-error">{{ fieldErrors()['email'] }}</span>
+            }
           </div>
 
           <div class="form-group">
             <div class="password-label-row">
-              <label class="form-label" for="password">Password</label>
+              <label class="form-label" for="password">Password <span class="required-star">*</span></label>
               <a routerLink="/forgot-password" class="forgot-link">Forgot password?</a>
             </div>
             <input
@@ -41,16 +46,21 @@ import { ToastService } from '../../../core/services/toast.service';
               id="password"
               name="password"
               class="form-control"
+              [class.is-invalid]="fieldErrors()['password']"
               [(ngModel)]="password"
+              (input)="clearFieldError('password')"
               required
               placeholder="••••••••"
             />
+            @if (fieldErrors()['password']) {
+              <span class="form-error">{{ fieldErrors()['password'] }}</span>
+            }
           </div>
 
           <button
             type="submit"
             class="btn btn-primary btn-block"
-            [disabled]="loading() || !email || !password"
+            [disabled]="loading()"
           >
             @if (loading()) {
               <span>Signing in...</span>
@@ -142,9 +152,35 @@ export class LoginComponent {
   email = '';
   password = '';
   readonly loading = signal(false);
+  readonly fieldErrors = signal<Record<string, string>>({});
+
+  clearFieldError(field: string) {
+    this.fieldErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      return copy;
+    });
+  }
 
   onSubmit() {
-    if (!this.email || !this.password) return;
+    this.fieldErrors.set({});
+
+    const errors: Record<string, string> = {};
+    if (!this.email.trim()) {
+      errors['email'] = 'Email address is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email.trim())) {
+      errors['email'] = 'Please enter a valid email address';
+    }
+
+    if (!this.password) {
+      errors['password'] = 'Password is required';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      this.fieldErrors.set(errors);
+      return;
+    }
+
     this.loading.set(true);
 
     this.auth.login({ email: this.email, password: this.password }).subscribe({
@@ -154,6 +190,13 @@ export class LoginComponent {
       },
       error: err => {
         this.loading.set(false);
+        if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+          const backendErrors: Record<string, string> = {};
+          for (const fe of err.error.fieldErrors) {
+            backendErrors[fe.field] = fe.message;
+          }
+          this.fieldErrors.set(backendErrors);
+        }
         this.toast.error(err?.error?.message || 'Invalid email or password');
       },
     });

@@ -356,6 +356,11 @@ textarea {
   font-weight: 500;
 }
 
+.required-star {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

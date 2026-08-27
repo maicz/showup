@@ -86,4 +86,8 @@ export class GroupService {
   approveMember(groupId: string, memberId: string): Observable<void> {
     return this.http.post<void>(`/api/groups/${groupId}/members/${memberId}/approve`, {});
   }
+
+  declineMember(groupId: string, memberId: string): Observable<void> {
+    return this.http.post<void>(`/api/groups/${groupId}/members/${memberId}/decline`, {});
+  }
 }

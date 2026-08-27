@@ -49,15 +49,22 @@ import { TopicService } from '../../core/services/topic.service';
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="displayName">Display Name</label>
+              <label class="form-label" for="displayName">
+                Display Name <span class="required-star">*</span>
+              </label>
               <input
                 type="text"
                 id="displayName"
                 name="displayName"
                 class="form-control"
+                [class.is-invalid]="profileFieldErrors()['displayName']"
                 [(ngModel)]="displayName"
+                (input)="clearProfileFieldError('displayName')"
                 required
               />
+              @if (profileFieldErrors()['displayName']) {
+                <span class="form-error">{{ profileFieldErrors()['displayName'] }}</span>
+              }
             </div>
 
             <div class="form-group">
@@ -296,6 +303,15 @@ export class ProfileComponent implements OnInit {
   readonly saving = signal(false);
   readonly savingInterests = signal(false);
   readonly loadingTopics = signal(true);
+  readonly profileFieldErrors = signal<Record<string, string>>({});
+
+  clearProfileFieldError(field: string) {
+    this.profileFieldErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      return copy;
+    });
+  }
 
   displayName = '';
   bio = '';
@@ -359,6 +375,13 @@ export class ProfileComponent implements OnInit {
   }
 
   onSaveProfile() {
+    this.profileFieldErrors.set({});
+
+    if (!this.displayName.trim()) {
+      this.profileFieldErrors.set({ displayName: 'Display name is required' });
+      return;
+    }
+
     this.saving.set(true);
     this.memberService
       .updateProfile({
@@ -377,6 +400,13 @@ export class ProfileComponent implements OnInit {
         },
         error: err => {
           this.saving.set(false);
+          if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+            const backendErrors: Record<string, string> = {};
+            for (const fe of err.error.fieldErrors) {
+              backendErrors[fe.field] = fe.message;
+            }
+            this.profileFieldErrors.set(backendErrors);
+          }
           this.toast.error(err?.error?.message || 'Failed to update profile');
         },
       });

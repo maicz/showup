@@ -24,22 +24,27 @@ import { ToastService } from '../../../core/services/toast.service';
         } @else {
           <form (ngSubmit)="onSubmit()">
             <div class="form-group">
-              <label class="form-label" for="email">Email address</label>
+              <label class="form-label" for="email">Email address <span class="required-star">*</span></label>
               <input
                 type="email"
                 id="email"
                 name="email"
                 class="form-control"
+                [class.is-invalid]="fieldErrors()['email']"
                 [(ngModel)]="email"
+                (input)="clearFieldError('email')"
                 required
                 placeholder="you@example.com"
               />
+              @if (fieldErrors()['email']) {
+                <span class="form-error">{{ fieldErrors()['email'] }}</span>
+              }
             </div>
 
             <button
               type="submit"
               class="btn btn-primary btn-block"
-              [disabled]="loading() || !email"
+              [disabled]="loading()"
             >
               @if (loading()) {
                 <span>Sending link...</span>
@@ -116,9 +121,27 @@ export class ForgotPasswordComponent {
   email = '';
   readonly loading = signal(false);
   readonly submitted = signal(false);
+  readonly fieldErrors = signal<Record<string, string>>({});
+
+  clearFieldError(field: string) {
+    this.fieldErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      return copy;
+    });
+  }
 
   onSubmit() {
-    if (!this.email) return;
+    this.fieldErrors.set({});
+
+    if (!this.email.trim()) {
+      this.fieldErrors.set({ email: 'Email address is required' });
+      return;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email.trim())) {
+      this.fieldErrors.set({ email: 'Please enter a valid email address' });
+      return;
+    }
+
     this.loading.set(true);
 
     this.auth.forgotPassword({ email: this.email }).subscribe({
@@ -128,6 +151,13 @@ export class ForgotPasswordComponent {
       },
       error: err => {
         this.loading.set(false);
+        if (err?.error?.fieldErrors && Array.isArray(err.error.fieldErrors)) {
+          const backendErrors: Record<string, string> = {};
+          for (const fe of err.error.fieldErrors) {
+            backendErrors[fe.field] = fe.message;
+          }
+          this.fieldErrors.set(backendErrors);
+        }
         this.toast.error(err?.error?.message || 'Unable to process request');
       },
     });

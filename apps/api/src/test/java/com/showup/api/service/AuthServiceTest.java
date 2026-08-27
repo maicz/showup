@@ -5,11 +5,13 @@ import com.showup.api.dto.ForgotPasswordRequest;
 import com.showup.api.dto.LoginRequest;
 import com.showup.api.dto.MessageResponse;
 import com.showup.api.dto.RegisterRequest;
+import com.showup.api.dto.ResetPasswordRequest;
 import com.showup.api.dto.SsoLoginRequest;
 import com.showup.api.dto.TokenResponse;
 import com.showup.api.entity.Member;
 import com.showup.api.enums.IdentityProvider;
 import com.showup.api.enums.MemberStatus;
+import com.showup.api.exception.BusinessRuleException;
 import com.showup.api.exception.ConflictException;
 import com.showup.api.exception.NotImplementedException;
 import com.showup.api.exception.UnauthorizedException;
@@ -103,5 +105,45 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.ssoLogin(
                 new SsoLoginRequest(IdentityProvider.GOOGLE, "google_id_token_12345")))
                 .isInstanceOf(NotImplementedException.class);
+    }
+
+    @Test
+    void resetPasswordSuccessfullySetsNewPasswordAndRecordsTimestamp() {
+        UUID memberId = UUID.randomUUID();
+        Member member = new Member("test@example.com", "old_hash", "Test User");
+        when(members.findById(memberId)).thenReturn(Optional.of(member));
+
+        Jwt jwt = mock(Jwt.class);
+        when(jwt.getClaimAsString("purpose")).thenReturn("reset-password");
+        when(jwt.getSubject()).thenReturn(memberId.toString());
+        when(jwt.getIssuedAt()).thenReturn(java.time.Instant.now());
+        when(jwtDecoder.decode("valid_token")).thenReturn(jwt);
+        when(passwordEncoder.encode("NewSecret123!")).thenReturn("new_hash");
+
+        MessageResponse response = service.resetPassword(new ResetPasswordRequest("valid_token", "NewSecret123!"));
+
+        assertThat(response.message()).contains("Password has been reset successfully");
+        assertThat(member.getPasswordHash()).isEqualTo("new_hash");
+        assertThat(member.getPasswordUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void resetPasswordRejectsAlreadyUsedToken() {
+        UUID memberId = UUID.randomUUID();
+        Member member = new Member("test@example.com", "current_hash", "Test User");
+        java.time.Instant passwordResetTime = java.time.Instant.now();
+        member.setPasswordUpdatedAt(passwordResetTime);
+        when(members.findById(memberId)).thenReturn(Optional.of(member));
+
+        Jwt jwt = mock(Jwt.class);
+        when(jwt.getClaimAsString("purpose")).thenReturn("reset-password");
+        when(jwt.getSubject()).thenReturn(memberId.toString());
+        // Token was issued before the member's last password update
+        when(jwt.getIssuedAt()).thenReturn(passwordResetTime.minusSeconds(60));
+        when(jwtDecoder.decode("used_token")).thenReturn(jwt);
+
+        assertThatThrownBy(() -> service.resetPassword(new ResetPasswordRequest("used_token", "AnotherSecret123!")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("already been used");
     }
 }

@@ -39,7 +39,13 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
             </div>
             <div class="toolbar-actions">
               @if (event()!.status === 'DRAFT') {
-                <button class="btn btn-sm btn-primary" (click)="publishEvent()">🚀 Publish Event</button>
+                <button
+                  class="btn btn-sm btn-primary"
+                  [disabled]="publishingEvent()"
+                  (click)="publishEvent()"
+                >
+                  {{ publishingEvent() ? '🚀 Publishing...' : '🚀 Publish Event' }}
+                </button>
               }
               <a [routerLink]="['/events', event()!.id, 'check-in']" class="btn btn-sm btn-secondary">
                 📷 Door Scanner & Check-in
@@ -212,8 +218,12 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
                           </div>
                         </div>
                         @if (canDeleteComment(comment)) {
-                          <button class="btn btn-sm btn-subtle delete-btn" (click)="deleteComment(comment.id)">
-                            🗑️ Delete
+                          <button
+                            class="btn btn-sm btn-subtle delete-btn"
+                            [disabled]="deletingCommentId() === comment.id"
+                            (click)="deleteComment(comment.id)"
+                          >
+                            {{ deletingCommentId() === comment.id ? 'Deleting...' : '🗑️ Delete' }}
                           </button>
                         }
                       </div>
@@ -371,8 +381,12 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
                     🎟️ View Admission Ticket & QR
                   </button>
 
-                  <button class="btn btn-outline btn-block btn-sm" (click)="cancelRsvp()">
-                    Change / Cancel RSVP
+                  <button
+                    class="btn btn-outline btn-block btn-sm"
+                    [disabled]="cancellingRsvp()"
+                    (click)="cancelRsvp()"
+                  >
+                    {{ cancellingRsvp() ? 'Cancelling RSVP...' : 'Change / Cancel RSVP' }}
                   </button>
                 } @else if (event()!.viewerRsvp?.status === 'WAITLISTED') {
                   <div class="rsvp-status-badge waitlisted">
@@ -383,8 +397,12 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
                     </div>
                   </div>
 
-                  <button class="btn btn-outline btn-block btn-sm" (click)="cancelRsvp()">
-                    Leave Waitlist
+                  <button
+                    class="btn btn-outline btn-block btn-sm"
+                    [disabled]="cancellingRsvp()"
+                    (click)="cancelRsvp()"
+                  >
+                    {{ cancellingRsvp() ? 'Leaving Waitlist...' : 'Leave Waitlist' }}
                   </button>
                 } @else {
                   @if (event()!.guestsPerRsvpLimit > 0) {
@@ -901,6 +919,9 @@ export class EventDetailComponent implements OnInit {
   readonly loading = signal(true);
   readonly submittingRsvp = signal(false);
   readonly submittingComment = signal(false);
+  readonly cancellingRsvp = signal(false);
+  readonly deletingCommentId = signal<string | null>(null);
+  readonly publishingEvent = signal(false);
 
   readonly activeTab = signal<'details' | 'comments' | 'photos' | 'feedback'>('details');
   readonly showCancelModal = signal(false);
@@ -990,12 +1011,20 @@ export class EventDetailComponent implements OnInit {
   }
 
   cancelRsvp() {
+    if (!confirm('Are you sure you want to cancel your RSVP / leave the waitlist?')) {
+      return;
+    }
+    this.cancellingRsvp.set(true);
     this.rsvpService.cancelRsvp(this.id()).subscribe({
       next: () => {
+        this.cancellingRsvp.set(false);
         this.toast.info('RSVP cancelled.');
         this.loadEvent();
       },
-      error: err => this.toast.error(err?.error?.message || 'Could not cancel RSVP'),
+      error: err => {
+        this.cancellingRsvp.set(false);
+        this.toast.error(err?.error?.message || 'Could not cancel RSVP');
+      },
     });
   }
 
@@ -1037,9 +1066,19 @@ export class EventDetailComponent implements OnInit {
   }
 
   deleteComment(commentId: string) {
+    if (!confirm('Are you sure you want to delete this comment?')) {
+      return;
+    }
+    this.deletingCommentId.set(commentId);
     this.commentService.deleteComment(this.id(), commentId).subscribe({
-      next: () => this.loadComments(),
-      error: err => this.toast.error(err?.error?.message || 'Could not delete comment'),
+      next: () => {
+        this.deletingCommentId.set(null);
+        this.loadComments();
+      },
+      error: err => {
+        this.deletingCommentId.set(null);
+        this.toast.error(err?.error?.message || 'Could not delete comment');
+      },
     });
   }
 
@@ -1089,12 +1128,17 @@ export class EventDetailComponent implements OnInit {
   }
 
   publishEvent() {
+    this.publishingEvent.set(true);
     this.eventService.publishEvent(this.id()).subscribe({
       next: () => {
+        this.publishingEvent.set(false);
         this.toast.success('Event published! It is now visible in search.');
         this.loadEvent();
       },
-      error: err => this.toast.error(err?.error?.message || 'Failed to publish event'),
+      error: err => {
+        this.publishingEvent.set(false);
+        this.toast.error(err?.error?.message || 'Failed to publish event');
+      },
     });
   }
 

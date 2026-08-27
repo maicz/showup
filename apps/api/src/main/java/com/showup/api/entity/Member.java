@@ -63,6 +63,9 @@ public class Member extends BaseEntity {
     @Column(name = "email_verified_at")
     private Instant emailVerifiedAt;
 
+    @Column(name = "password_updated_at")
+    private Instant passwordUpdatedAt;
+
     protected Member() {
         // for JPA
     }
@@ -148,5 +151,13 @@ public class Member extends BaseEntity {
 
     public void setEmailVerifiedAt(Instant emailVerifiedAt) {
         this.emailVerifiedAt = emailVerifiedAt;
+    }
+
+    public Instant getPasswordUpdatedAt() {
+        return passwordUpdatedAt;
+    }
+
+    public void setPasswordUpdatedAt(Instant passwordUpdatedAt) {
+        this.passwordUpdatedAt = passwordUpdatedAt;
     }
 }

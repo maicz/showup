@@ -46,7 +46,10 @@ import { ToastService } from '../../../core/services/toast.service';
 
                 <div class="pending-actions">
                   <button class="btn btn-sm btn-primary" (click)="approveMember(p.memberId)">
-                    Approve Member
+                    Approve
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="declineMember(p.memberId, p.displayName)">
+                    Decline
                   </button>
                 </div>
               </div>
@@ -155,6 +158,18 @@ import { ToastService } from '../../../core/services/toast.service';
         font-size: 0.75rem;
         color: var(--color-text-subtle);
       }
+      .pending-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .btn-outline-danger {
+        background: transparent;
+        border: 1px solid var(--color-danger, #ef4444);
+        color: var(--color-danger, #ef4444);
+        &:hover {
+          background: #fef2f2;
+        }
+      }
       .role-select {
         min-width: 180px;
         font-size: 0.875rem;
@@ -197,6 +212,18 @@ export class GroupManageComponent implements OnInit {
         this.loadData();
       },
       error: err => this.toast.error(err?.error?.message || 'Could not approve member'),
+    });
+  }
+
+  declineMember(memberId: string, name?: string) {
+    const label = name ? `Decline join request from ${name}?` : 'Decline this join request?';
+    if (!confirm(label)) return;
+    this.groupService.declineMember(this.id(), memberId).subscribe({
+      next: () => {
+        this.toast.info('Join request declined.');
+        this.loadData();
+      },
+      error: err => this.toast.error(err?.error?.message || 'Could not decline member'),
     });
   }
 
