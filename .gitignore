@@ -1,7 +1,6 @@
-# Local secrets and config — never commit. .env.example is the tracked template.
+# Local secrets and configuration — never commit environment files.
 .env
 .env.*
-!.env.example
 
 # IDE
 .idea/
