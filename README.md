@@ -154,6 +154,10 @@ npm test -- --watch=false
 ```
 *Run this command to obtain the current Vitest count; counts are intentionally recorded in release evidence rather than copied here.*
 
+## Release-demo contract
+
+The narrow release journey, roles, non-sensitive fixture plan, supported walkthrough environment, and out-of-scope boundaries are defined in [the release-demo contract](docs/demo/release-contract.md). Use the accompanying [manual smoke test](docs/demo/manual-smoke-test.md) for a candidate environment; it complements the API integration proof and does not make a local run a public release.
+
 ## Explicitly Deferred or Simulated
 
 - Social sign-in is intentionally unavailable until provider-token verification is implemented; the endpoint returns `501 Not Implemented`.
