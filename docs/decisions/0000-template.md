@@ -2,8 +2,8 @@
 
 - Status: Proposed
 - Date: YYYY-MM-DD
-- Owners: 
-- Related issues: 
+- Owners: TBD
+- Related issues: TBD
 
 ## Context
 
