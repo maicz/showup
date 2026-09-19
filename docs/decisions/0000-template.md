@@ -1,0 +1,18 @@
+# ADR-NNNN: Title
+
+- Status: Proposed
+- Date: YYYY-MM-DD
+- Owners: 
+- Related issues: 
+
+## Context
+
+What decision is needed, what constraints apply, and what options were considered?
+
+## Decision
+
+State the chosen direction precisely enough to guide implementation.
+
+## Consequences
+
+List the benefits, costs, risks, and follow-up work. Link code, runbooks, or evidence when available.

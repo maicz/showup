@@ -26,9 +26,12 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
             select g from Group g
              where g.visibility = :visibility
                and g.status = :status
-               and (:query is null or lower(g.name) like concat('%', lower(:query), '%'))
-               and (:categorySlug is null or g.category.slug = :categorySlug)
-               and (:city is null or lower(g.city) = :city)
+               and (cast(:query as string) is null
+                    or lower(g.name) like concat('%', lower(cast(:query as string)), '%'))
+               and (cast(:categorySlug as string) is null
+                    or g.category.slug = cast(:categorySlug as string))
+               and (cast(:city as string) is null
+                    or lower(g.city) = cast(:city as string))
             """)
     Page<Group> searchPublic(
             @Param("visibility") GroupVisibility visibility,

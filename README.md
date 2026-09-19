@@ -11,7 +11,7 @@ Event-planning platform in the spirit of Meetup: community group management, eve
 | **Backend API** | Java 25, Spring Boot 4.1.0 | Spring Security (Stateless Nimbus JWT), Spring Data JPA, Hibernate, Flyway, MapStruct, JTS Spatial Geometry, Spring AI Copilot |
 | **Frontend Web** | Angular 22.1 | Standalone Components, Signals (`signal`, `computed`), Built-in Control Flow (`@if`, `@for`), Standalone SVG QR Engine, SCSS Design System |
 | **Database** | PostgreSQL 18 + PostGIS | Full relational integrity, check constraints, GIST spatial index, JSONB aggregates |
-| **Testing** | JUnit 5, Mockito, WebMvcTest, Vitest | Fast isolated service/controller slice tests (47 Java tests) & reactive frontend component tests (11 Vitest tests) |
+| **Testing** | JUnit 5, Mockito, WebMvcTest, Testcontainers, Vitest | Java unit, MVC-slice, and PostgreSQL/PostGIS integration coverage; frontend component/service coverage. See [testing guide](docs/testing.md) for the verified baseline and commands. |
 
 ---
 
@@ -39,7 +39,7 @@ showup/
     │   │   ├── security/           # @CurrentMember resolver, SecurityContext helpers
     │   │   ├── service/            # Transactional business logic & access guards
     │   │   └── util/               # RRULE recurrence expansion, JTS Geometry helpers
-    │   └── src/main/resources/db/migration/ # Flyway SQL migrations (V1 - V5)
+    │   └── src/main/resources/db/migration/ # Flyway migrations V1–V8 plus repeatable taxonomy seed
     └── web/                        # Angular 22.1 web application
         ├── src/app/
         │   ├── core/
@@ -61,14 +61,17 @@ showup/
 
 ---
 
-## Features Implemented
+## Delivery Status
+
+ShowUp is a locally runnable, in-progress product. It is **not a public production demo or a released service**. The implemented paths below are useful development evidence, not a promise that every integration is production-operated. See the [release-evidence checklist](docs/evidence/release-evidence-checklist.md) for the gate that must pass before that changes.
+
+## Implemented Local Capabilities
 
 ### 1. Authentication & Member Lifecycle
 - Stateless HS256 JWT auth with `@CurrentMember` binding.
 - Register & Login with BCrypt password hashing.
 - SSO identity linking is modelled but intentionally disabled until real Google/Apple/Facebook token verification is configured.
-- Self-service Forgot Password & Reset Password with signed action tokens.
-- Email verification lifecycle and resend token workflow.
+- Forgot-password, reset-password, email-verification, and resend-token flows use signed action tokens, but their current notification adapter only writes a masked delivery event to application logs; it does **not** send email.
 - Member profile management (name, bio, home city, avatar).
 - Interactive interest taxonomy selection from 24 curated categories.
 
@@ -83,7 +86,7 @@ showup/
 - Faceted search (keyword, format: `IN_PERSON` / `ONLINE` / `HYBRID`, category, followed topics, availability: `SEATS_AVAILABLE` / `WAITLIST`).
 - Host assignment, cancellation with notifications, and publication workflow.
 - Threaded discussions & comments with single-level replies and soft-delete redactions.
-- Event photo gallery with upload and moderation controls.
+- Event photo gallery and moderation controls that persist externally hosted photo URLs; this is not a file-upload or object-storage pipeline.
 - Post-event attendee reviews and 5-star ratings.
 
 ### 4. RSVPs, Ticketing & Door Check-In
@@ -96,10 +99,12 @@ showup/
   - Real-time turnout stats and attendee search roster.
 - Volunteer staff delegation (`SCANNER`, `GREETER`, `SETUP`, `AV`, `CLEANUP`).
 
-### 5. AI Copilot & Insights
-- **AI Event Drafter**: Generates title, description, format, and capacity from natural language notes.
-- **AI Feedback Synthesis**: Analyzes attendee reviews to extract overall sentiment, narrative summary, and top themes.
-- **AI Recommendation Engine**: Recommends personalized upcoming events based on followed member interest topics.
+### 5. Heuristic Drafting & Insights (not production AI)
+- Event drafting derives title, description, format, category, and topics from deterministic keyword rules.
+- Feedback summaries calculate ratings and apply deterministic themes/text.
+- Recommendations currently return the next published events and a rationale; topic-based filtering/ranking remains release work.
+
+No generative-model provider is configured or called by the current implementation. The UI and documentation must not describe these results as live provider-backed AI.
 
 ### 6. Analytics & Reporting
 - Event attendance report: registered count, attended count, no-shows, turnout percentage, staff scan totals, and check-in timeline.
@@ -134,16 +139,23 @@ npm start
 
 ## Running Tests
 
-### Backend Unit & Controller Tests
+### Backend Unit, Controller, and Integration Tests
 ```bash
 cd apps/api
-./mvnw test -Dtest=*Test
+../../scripts/test-preflight.sh
+./mvnw test
 ```
-*Executes all 47 unit, mockito, and WebMvc slice tests (0 failures, 0 errors).*
+*The suite uses Testcontainers with PostgreSQL/PostGIS. It requires a running Docker-compatible runtime and does not use the Compose development database. See [docs/testing.md](docs/testing.md) for prerequisites, the preflight command, and the current verified summary.*
 
 ### Frontend Vitest Tests
 ```bash
 cd apps/web
 npm test -- --watch=false
 ```
-*Executes all 11 component and service unit tests (0 failures, 0 errors).*
+*Run this command to obtain the current Vitest count; counts are intentionally recorded in release evidence rather than copied here.*
+
+## Explicitly Deferred or Simulated
+
+- Social sign-in is intentionally unavailable until provider-token verification is implemented; the endpoint returns `501 Not Implemented`.
+- Check-in includes a roster-based fast-admit control for local demonstration. It is not a substitute for production scanner-device validation.
+- Public deployment, production email delivery, object storage, browser smoke coverage, monitoring, backup/restore proof, and a public fallback walkthrough are not complete. Their release requirements are tracked in `PORTFOLIO_JIRA.md`.
