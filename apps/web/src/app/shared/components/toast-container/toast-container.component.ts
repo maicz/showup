@@ -5,16 +5,16 @@ import { ToastService } from '../../../core/services/toast.service';
   selector: 'app-toast-container',
   standalone: true,
   template: `
-    <div class="toast-wrapper">
+    <div class="toast-wrapper" aria-live="polite" aria-atomic="false">
       @for (toast of toastService.toasts(); track toast.id) {
-        <div class="toast-item toast-{{ toast.type }}">
+        <div class="toast-item toast-{{ toast.type }}" role="status">
           <div class="toast-content">
             @if (toast.title) {
               <div class="toast-title">{{ toast.title }}</div>
             }
             <div class="toast-message">{{ toast.message }}</div>
           </div>
-          <button class="toast-close" (click)="toastService.remove(toast.id)">&times;</button>
+          <button class="toast-close" type="button" [attr.aria-label]="'Dismiss ' + (toast.title || 'notification')" (click)="toastService.remove(toast.id)">&times;</button>
         </div>
       }
     </div>

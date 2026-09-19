@@ -157,6 +157,19 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<!-- JDK 21+ warns about, and some runtimes prohibit, Mockito's self-attachment.
+				     Supplying Byte Buddy as a startup agent keeps the test suite portable. -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>${argLine} -javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/1.18.10/byte-buddy-agent-1.18.10.jar</argLine>
+					<environmentVariables>
+						<!-- Test-only value; production startup requires JWT_SECRET from its environment. -->
+						<JWT_SECRET>test-only-signing-key-that-is-at-least-32-bytes-long</JWT_SECRET>
+					</environmentVariables>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 

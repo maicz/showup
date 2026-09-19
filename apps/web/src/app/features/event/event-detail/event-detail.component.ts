@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { Component, HostListener, inject, input, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AiFeedbackSummaryResponse } from '../../../core/models/ai.model';
@@ -17,12 +17,13 @@ import { FeedbackService } from '../../../core/services/feedback.service';
 import { PhotoService } from '../../../core/services/photo.service';
 import { RsvpService } from '../../../core/services/rsvp.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { FocusTrapDirective } from '../../../shared/directives/focus-trap.directive';
 import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.component';
 
 @Component({
   selector: 'app-event-detail',
   standalone: true,
-  imports: [RouterLink, FormsModule, DatePipe, QrCodeComponent],
+  imports: [RouterLink, FormsModule, DatePipe, QrCodeComponent, FocusTrapDirective],
   template: `
     @if (loading()) {
       <div class="container loading-container">
@@ -436,9 +437,9 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
         <!-- Ticket Modal -->
         @if (ticket()) {
           <div class="modal-backdrop" (click)="ticket.set(null)">
-            <div class="modal-content ticket-modal" (click)="$event.stopPropagation()">
+            <div appFocusTrap tabindex="-1" class="modal-content ticket-modal" role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title" (click)="$event.stopPropagation()">
               <div class="ticket-modal-header">
-                <h2>Your Admission Pass</h2>
+                <h2 id="ticket-modal-title">Your Admission Pass</h2>
                 <p>{{ event()!.title }}</p>
               </div>
 
@@ -466,8 +467,8 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
         <!-- Feedback Modal -->
         @if (showFeedbackModal()) {
           <div class="modal-backdrop" (click)="showFeedbackModal.set(false)">
-            <div class="modal-content" (click)="$event.stopPropagation()">
-              <h2>Leave Event Review</h2>
+            <div appFocusTrap tabindex="-1" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title" (click)="$event.stopPropagation()">
+              <h2 id="feedback-modal-title">Leave Event Review</h2>
               <p>How was your experience at this event?</p>
 
               <div class="rating-input">
@@ -499,8 +500,8 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
         <!-- Upload Photo Modal -->
         @if (showUploadPhotoModal()) {
           <div class="modal-backdrop" (click)="showUploadPhotoModal.set(false)">
-            <div class="modal-content" (click)="$event.stopPropagation()">
-              <h2>Upload Event Photo</h2>
+            <div appFocusTrap tabindex="-1" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="photo-modal-title" (click)="$event.stopPropagation()">
+              <h2 id="photo-modal-title">Upload Event Photo</h2>
               
               <div class="form-group">
                 <label class="form-label">Photo URL</label>
@@ -533,8 +534,8 @@ import { QrCodeComponent } from '../../../shared/components/qr-code/qr-code.comp
         <!-- Cancel Event Modal -->
         @if (showCancelModal()) {
           <div class="modal-backdrop" (click)="showCancelModal.set(false)">
-            <div class="modal-content" (click)="$event.stopPropagation()">
-              <h2>Cancel Event</h2>
+            <div appFocusTrap tabindex="-1" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title" (click)="$event.stopPropagation()">
+              <h2 id="cancel-modal-title">Cancel Event</h2>
               <p>Please provide a reason for cancelling. Attendees will be notified.</p>
 
               <div class="form-group">
@@ -935,6 +936,19 @@ export class EventDetailComponent implements OnInit {
   rating = 5;
   feedbackComment = '';
   cancellationReason = '';
+
+  @HostListener('document:keydown.escape')
+  closeModalOnEscape() {
+    if (this.ticket()) {
+      this.ticket.set(null);
+    } else if (this.showFeedbackModal()) {
+      this.showFeedbackModal.set(false);
+    } else if (this.showUploadPhotoModal()) {
+      this.showUploadPhotoModal.set(false);
+    } else if (this.showCancelModal()) {
+      this.showCancelModal.set(false);
+    }
+  }
 
   guestOptions(): number[] {
     const limit = this.event()?.guestsPerRsvpLimit || 0;

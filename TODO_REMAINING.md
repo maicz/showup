@@ -52,9 +52,9 @@ This document organizes all audit findings and remaining engineering tasks by pr
 
 ---
 
-## Priority 2 (P2) — Frontend Form Validation & Usability [COMPLETED]
+## Priority 2 (P2) — Frontend Form Validation & Usability [COMPLETED ✅]
 
-### 1. Replace Silent `[disabled]` Buttons with Inline Form Feedback
+### 1. Replace Silent `[disabled]` Buttons with Inline Form Feedback [DONE ✅]
 - **Location**:
   - [`login.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/login/login.component.ts)
   - [`register.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/auth/register/register.component.ts)
@@ -65,30 +65,30 @@ This document organizes all audit findings and remaining engineering tasks by pr
   - [`profile.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/profile/profile.component.ts)
 - **Status**: Completed. Removed silent button disabling; added visual indicators (`*`), `.is-invalid` highlighting, and `<span class="form-error">` inline error messages with active validation upon submit and dynamic clearing upon input.
 
-### 2. Bind Server-Side `fieldErrors` to Form Controls
+### 2. Bind Server-Side `fieldErrors` to Form Controls [DONE ✅]
 - **Location**: All forms across `auth/`, `group/`, `event/`, and `profile/`.
 - **Status**: Completed. Extended all submission error handlers to inspect `err?.error?.fieldErrors`, mapping backend Bean Validation violations directly to form fields for inline display.
 
-### 3. Add Missing "Decline / Reject" Action in Organizer Console
+### 3. Add Missing "Decline / Reject" Action in Organizer Console [DONE ✅]
 - **Location**: [`group-manage.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-manage/group-manage.component.ts), [`GroupService.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/service/GroupService.java), [`GroupController.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/controller/GroupController.java), [`group.service.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/core/services/group.service.ts)
 - **Status**: Completed. Added `POST /api/groups/{id}/members/{memberId}/decline` endpoint transitioning `PENDING_APPROVAL` status to `LEFT`. Added frontend service method and Decline button with confirmation dialog and list refreshment.
 
-### 4. Add Admission Fee Inputs to Event Creator
+### 4. Add Admission Fee Inputs to Event Creator [DONE ✅]
 - **Location**: [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts)
 - **Status**: Completed. Added Ticket Price (`feeAmount`) and Currency (`feeCurrency`) form controls to the event creation template, converting amount to minor units (`feeAmountMinor`) in the create event request.
 
-### 5. Fix Local Time Zone Drift in Event Date Picker
+### 5. Fix Local Time Zone Drift in Event Date Picker [DONE ✅]
 - **Location**: [`date.utils.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/core/utils/date.utils.ts), [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts)
 - **Status**: Completed. Created `localDateTimeToUtcIso` utility with full unit test coverage using `Intl.DateTimeFormat` to resolve local timezone offsets relative to the event's selected IANA timezone, preventing browser timezone drift.
 
-### 6. Add In-Flight Request Disabling & Destructive Confirmations
+### 6. Add In-Flight Request Disabling & Destructive Confirmations [DONE ✅]
 - **Location**:
   - [`group-detail.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/group/group-detail/group-detail.component.ts): Added confirmation dialog and `leavingGroup` in-flight signal and disabled state.
   - [`event-detail.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-detail/event-detail.component.ts): Added confirmation dialogs and in-flight guards (`cancellingRsvp`, `deletingCommentId`, `publishingEvent`).
   - [`staff-management.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/attendance/staff/staff-management.component.ts): Added confirmation dialog and `removingStaffId` disabled state.
-- **Status**: Completed.
+- **Status**: Completed. Attached confirmation dialogs and in-flight guard states across GroupDetail (`leavingGroup`), StaffManagement (`removingStaffId`), and EventDetail (`cancellingRsvp`, `deletingCommentId`, `publishingEvent`) to prevent duplicate submissions.
 
-### 7. Password Reset Token Single-Use Revocation
+### 7. Password Reset Token Single-Use Revocation [DONE ✅]
 - **Location**: [`AuthService.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/service/AuthService.java), [`Member.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/entity/Member.java), [`V8__add_password_updated_at_to_member.sql`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/resources/db/migration/V8__add_password_updated_at_to_member.sql)
 - **Status**: Completed. Created Flyway migration V8 adding `password_updated_at` column to `member`. Enforced in `AuthService.decodeActionToken` and `resetPassword` by rejecting any token issued before `member.passwordUpdatedAt`. Tested and verified with unit tests.
 
@@ -96,30 +96,34 @@ This document organizes all audit findings and remaining engineering tasks by pr
 
 ## Priority 3 (P3) — Accessibility, AI Copilot & Frontend Polish
 
-### 1. Modal Dialog Accessibility & Keyboard Support
+### 1. Modal Dialog Accessibility & Keyboard Support [DONE ✅]
 - **Location**: All modal overlays across `event-detail`, `group-detail`, and `event-create`.
 - **Issue**: Modals do not trap focus, lack `aria-modal="true"`, and do not close on pressing `Escape`.
 - **Fix**:
   - Add `@HostListener('document:keydown.escape')` to close active dialogs.
   - Ensure autofocus moves to the first interactive element upon opening and restores focus to the trigger button upon closing.
+- **Status**: Completed. All event, group, and venue dialogs use a reusable focus trap, close with Escape, and restore focus after dismissal.
 
-### 2. Screen Reader Live Announcements for Toasts
+### 2. Screen Reader Live Announcements for Toasts [DONE ✅]
 - **Location**: [`toast.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/shared/components/toast/toast.component.ts)
 - **Issue**: Toast notifications lack `aria-live="polite"` and `role="status"`.
 - **Fix**:
   - Wrap the toast container in an ARIA live region so dynamic status alerts are voiced by screen readers.
+- **Status**: Completed. Toasts use a polite ARIA live region, `role="status"`, and accessible dismissal labels.
 
-### 3. Implement Topic Filtering in AI Recommendations
+### 3. Implement Topic Filtering in AI Recommendations [DONE ✅]
 - **Location**: [`CopilotService.java`](file:///Users/mihaiz/dev/projects/personal/showup/apps/api/src/main/java/com/showup/api/service/CopilotService.java#L157-L175)
 - **Issue**: `getRecommendations(memberId)` queries followed topic IDs but takes `upcoming.limit(6)` without matching against `interestedTopicIds`.
 - **Fix**:
   - Filter and rank upcoming events by matching group/event topics with the member's followed topic IDs.
+- **Status**: Completed. Recommendations filter published events to followed group topics using one bulk group-topic lookup, with service coverage.
 
-### 4. Enable Angular Route Lazy Loading
+### 4. Enable Angular Route Lazy Loading [DONE ✅]
 - **Location**: [`app.routes.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/app.routes.ts)
 - **Issue**: All components are eagerly imported, bundling the entire application into the initial script.
 - **Fix**:
   - Convert route definitions to use `loadComponent: () => import('./path/to/component').then(m => m.ComponentClass)`.
+- **Status**: Completed. All feature routes now load components on demand.
 
 ### 5. Component Modularization
 - **Location**: [`event-detail.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-detail/event-detail.component.ts) (1,100+ lines), [`event-create.component.ts`](file:///Users/mihaiz/dev/projects/personal/showup/apps/web/src/app/features/event/event-create/event-create.component.ts) (900+ lines).

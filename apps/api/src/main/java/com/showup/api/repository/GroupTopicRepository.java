@@ -12,5 +12,7 @@ public interface GroupTopicRepository extends JpaRepository<GroupTopic, UUID> {
 
     List<GroupTopic> findAllByGroupId(UUID groupId);
 
+    List<GroupTopic> findAllByGroupIdIn(List<UUID> groupIds);
+
     void deleteAllByGroupId(UUID groupId);
 }

@@ -123,9 +123,10 @@ docker compose up -d
 ### 2. Start Backend API
 ```bash
 cd apps/api
+export JWT_SECRET="$(openssl rand -base64 48)"
 ./mvnw spring-boot:run
 ```
-*The API starts at `http://localhost:8080`. Flyway automatically runs database migrations and seeds initial taxonomy.*
+*The API starts at `http://localhost:8080`. Flyway automatically runs database migrations and seeds initial taxonomy. Use a stable, secret value from your environment manager when you need existing sessions to remain valid across restarts; never commit it.*
 
 ### 3. Start Frontend Web Client
 ```bash

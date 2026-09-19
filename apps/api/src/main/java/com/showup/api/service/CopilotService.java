@@ -13,6 +13,7 @@ import com.showup.api.enums.EventStatus;
 import com.showup.api.mapper.EventMapper;
 import com.showup.api.repository.EventFeedbackRepository;
 import com.showup.api.repository.EventRepository;
+import com.showup.api.repository.GroupTopicRepository;
 import com.showup.api.repository.MemberInterestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,17 +33,20 @@ public class CopilotService {
     private final EventRepository eventRepository;
     private final EventFeedbackRepository feedbackRepository;
     private final MemberInterestRepository interestRepository;
+    private final GroupTopicRepository groupTopicRepository;
     private final EventMapper eventMapper;
 
     CopilotService(EventService eventService,
                    EventRepository eventRepository,
                    EventFeedbackRepository feedbackRepository,
                    MemberInterestRepository interestRepository,
+                   GroupTopicRepository groupTopicRepository,
                    EventMapper eventMapper) {
         this.eventService = eventService;
         this.eventRepository = eventRepository;
         this.feedbackRepository = feedbackRepository;
         this.interestRepository = interestRepository;
+        this.groupTopicRepository = groupTopicRepository;
         this.eventMapper = eventMapper;
     }
 
@@ -162,7 +166,24 @@ public class CopilotService {
 
         List<Event> upcoming = eventRepository.findAllByStatusOrderByStartsAtAsc(EventStatus.PUBLISHED);
 
-        List<EventSummary> recommended = upcoming.stream()
+        Set<UUID> upcomingGroupIds = upcoming.stream()
+                .map(event -> event.getGroup().getId())
+                .collect(Collectors.toSet());
+        Set<UUID> matchingGroupIds = interestedTopicIds.isEmpty() || upcomingGroupIds.isEmpty()
+                ? Set.of()
+                : groupTopicRepository.findAllByGroupIdIn(List.copyOf(upcomingGroupIds))
+                        .stream()
+                        .filter(groupTopic -> interestedTopicIds.contains(groupTopic.getTopic().getId()))
+                        .map(groupTopic -> groupTopic.getGroup().getId())
+                        .collect(Collectors.toSet());
+
+        List<Event> ranked = interestedTopicIds.isEmpty()
+                ? upcoming
+                : upcoming.stream()
+                        .filter(event -> matchingGroupIds.contains(event.getGroup().getId()))
+                        .toList();
+
+        List<EventSummary> recommended = ranked.stream()
                 .limit(6)
                 .map(eventMapper::toSummary)
                 .toList();

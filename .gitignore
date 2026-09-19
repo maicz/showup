@@ -11,3 +11,6 @@
 
 # Logs
 *.log
+
+# Local engineering assessments and working notes.
+reviews/

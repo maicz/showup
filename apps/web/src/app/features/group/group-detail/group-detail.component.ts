@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { Component, HostListener, inject, input, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { EventSummary } from '../../../core/models/event.model';
@@ -7,11 +7,12 @@ import { GroupDetail, GroupMemberSummary } from '../../../core/models/group.mode
 import { AuthService } from '../../../core/services/auth.service';
 import { GroupService } from '../../../core/services/group.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { FocusTrapDirective } from '../../../shared/directives/focus-trap.directive';
 
 @Component({
   selector: 'app-group-detail',
   standalone: true,
-  imports: [RouterLink, FormsModule, DatePipe],
+  imports: [RouterLink, FormsModule, DatePipe, FocusTrapDirective],
   template: `
     @if (loading()) {
       <div class="container loading-container">
@@ -178,8 +179,8 @@ import { ToastService } from '../../../core/services/toast.service';
         <!-- Join Group Modal -->
         @if (showJoinModal()) {
           <div class="modal-backdrop" (click)="showJoinModal.set(false)">
-            <div class="modal-content" (click)="$event.stopPropagation()">
-              <h2>Join {{ group()!.name }}</h2>
+            <div appFocusTrap tabindex="-1" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="join-group-modal-title" (click)="$event.stopPropagation()">
+              <h2 id="join-group-modal-title">Join {{ group()!.name }}</h2>
               <p>Introduce yourself to the organizers and fellow members.</p>
 
               <div class="form-group">
@@ -355,6 +356,13 @@ export class GroupDetailComponent implements OnInit {
   readonly leavingGroup = signal(false);
 
   joinIntro = '';
+
+  @HostListener('document:keydown.escape')
+  closeJoinModalOnEscape() {
+    if (this.showJoinModal()) {
+      this.showJoinModal.set(false);
+    }
+  }
 
   isGroupAdmin(): boolean {
     const role = this.group()?.viewerRole;

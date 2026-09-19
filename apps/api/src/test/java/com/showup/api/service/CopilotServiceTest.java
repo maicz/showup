@@ -5,10 +5,15 @@ import com.showup.api.dto.AiDraftEventResponse;
 import com.showup.api.dto.AiFeedbackSummaryResponse;
 import com.showup.api.entity.Event;
 import com.showup.api.entity.EventFeedback;
+import com.showup.api.entity.Group;
+import com.showup.api.entity.GroupTopic;
+import com.showup.api.entity.MemberInterest;
+import com.showup.api.entity.Topic;
 import com.showup.api.enums.EventFormat;
 import com.showup.api.mapper.EventMapper;
 import com.showup.api.repository.EventFeedbackRepository;
 import com.showup.api.repository.EventRepository;
+import com.showup.api.repository.GroupTopicRepository;
 import com.showup.api.repository.MemberInterestRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +26,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +44,8 @@ class CopilotServiceTest {
     @Mock
     private MemberInterestRepository interestRepository;
     @Mock
+    private GroupTopicRepository groupTopicRepository;
+    @Mock
     private EventMapper eventMapper;
 
     private CopilotService service;
@@ -43,7 +54,7 @@ class CopilotServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CopilotService(eventService, eventRepository, feedbackRepository, interestRepository, eventMapper);
+        service = new CopilotService(eventService, eventRepository, feedbackRepository, interestRepository, groupTopicRepository, eventMapper);
     }
 
     @Test
@@ -76,5 +87,37 @@ class CopilotServiceTest {
         assertThat(summary.averageRating()).isEqualTo(4.5);
         assertThat(summary.overallSentiment()).isEqualTo("Overwhelmingly Positive");
         assertThat(summary.positiveHighlights()).isNotEmpty();
+    }
+
+    @Test
+    void recommendationsIncludeOnlyEventsMatchingFollowedTopics() {
+        UUID memberId = UUID.randomUUID();
+        UUID followedTopicId = UUID.randomUUID();
+        UUID matchingGroupId = UUID.randomUUID();
+        UUID otherGroupId = UUID.randomUUID();
+        Event matchingEvent = mock(Event.class);
+        Event otherEvent = mock(Event.class);
+        Group matchingGroup = mock(Group.class);
+        Group otherGroup = mock(Group.class);
+        MemberInterest interest = mock(MemberInterest.class);
+        Topic followedTopic = mock(Topic.class);
+        GroupTopic matchingGroupTopic = mock(GroupTopic.class);
+
+        when(interestRepository.findAllByMemberId(memberId)).thenReturn(List.of(interest));
+        when(interest.getTopic()).thenReturn(followedTopic);
+        when(followedTopic.getId()).thenReturn(followedTopicId);
+        when(eventRepository.findAllByStatusOrderByStartsAtAsc(any())).thenReturn(List.of(matchingEvent, otherEvent));
+        when(matchingEvent.getGroup()).thenReturn(matchingGroup);
+        when(otherEvent.getGroup()).thenReturn(otherGroup);
+        when(matchingGroup.getId()).thenReturn(matchingGroupId);
+        when(otherGroup.getId()).thenReturn(otherGroupId);
+        when(groupTopicRepository.findAllByGroupIdIn(argThat(ids -> ids.containsAll(List.of(matchingGroupId, otherGroupId))))).thenReturn(List.of(matchingGroupTopic));
+        when(matchingGroupTopic.getTopic()).thenReturn(followedTopic);
+        when(matchingGroupTopic.getGroup()).thenReturn(matchingGroup);
+
+        service.getRecommendations(memberId);
+
+        verify(eventMapper).toSummary(matchingEvent);
+        verify(eventMapper, never()).toSummary(otherEvent);
     }
 }

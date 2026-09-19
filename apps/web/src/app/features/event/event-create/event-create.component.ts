@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { EventFormat } from '../../../core/models/event.model';
@@ -10,11 +10,12 @@ import { MemberService } from '../../../core/services/member.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { VenueService } from '../../../core/services/venue.service';
 import { localDateTimeToUtcIso } from '../../../core/utils/date.utils';
+import { FocusTrapDirective } from '../../../shared/directives/focus-trap.directive';
 
 @Component({
   selector: 'app-event-create',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, FocusTrapDirective],
   template: `
     <div class="container container-narrow event-create-page">
       <div class="page-header">
@@ -122,7 +123,7 @@ import { localDateTimeToUtcIso } from '../../../core/utils/date.utils';
                 <label class="form-label" for="venue">
                   Venue <span class="required-star">*</span>
                 </label>
-                <button type="button" class="btn btn-sm btn-subtle" (click)="openNewVenueModal()">
+                <button type="button" class="btn btn-sm btn-subtle" (click)="openNewVenueModal($event)">
                   + Add New Venue
                 </button>
               </div>
@@ -340,10 +341,10 @@ import { localDateTimeToUtcIso } from '../../../core/utils/date.utils';
 
       <!-- Add New Venue Modal with Full Validation -->
       @if (showNewVenueModal()) {
-        <div class="modal-backdrop" (click)="showNewVenueModal.set(false)">
-          <div class="modal-content modal-venue" (click)="$event.stopPropagation()">
+        <div class="modal-backdrop" (click)="closeNewVenueModal()">
+          <div appFocusTrap tabindex="-1" class="modal-content modal-venue" role="dialog" aria-modal="true" aria-labelledby="new-venue-title" (click)="$event.stopPropagation()">
             <div class="modal-header">
-              <h2>Add New Venue</h2>
+              <h2 id="new-venue-title">Add New Venue</h2>
               <p class="modal-sub">Create a physical meeting location for your group meetups.</p>
             </div>
 
@@ -536,7 +537,7 @@ import { localDateTimeToUtcIso } from '../../../core/utils/date.utils';
               </div>
 
               <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" (click)="showNewVenueModal.set(false)">
+                <button type="button" class="btn btn-secondary" (click)="closeNewVenueModal()">
                   Cancel
                 </button>
                 <button type="submit" class="btn btn-primary" [disabled]="savingVenue()">
@@ -726,6 +727,7 @@ export class EventCreateComponent implements OnInit {
 
   readonly venueFieldErrors = signal<Record<string, string>>({});
   readonly venueFormError = signal<string | null>(null);
+  private venueDialogTrigger?: HTMLElement;
 
   ngOnInit() {
     this.memberService.getMyGroups().subscribe({
@@ -787,7 +789,8 @@ export class EventCreateComponent implements OnInit {
       });
   }
 
-  openNewVenueModal() {
+  openNewVenueModal(event: MouseEvent) {
+    this.venueDialogTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined;
     this.venueFieldErrors.set({});
     this.venueFormError.set(null);
     this.newVenueName = '';
@@ -811,6 +814,22 @@ export class EventCreateComponent implements OnInit {
     }
 
     this.showNewVenueModal.set(true);
+    queueMicrotask(() => document.getElementById('vName')?.focus());
+  }
+
+  @HostListener('document:keydown.escape')
+  closeNewVenueModalOnEscape() {
+    if (this.showNewVenueModal()) {
+      this.closeNewVenueModal();
+    }
+  }
+
+  closeNewVenueModal() {
+    if (this.savingVenue()) {
+      return;
+    }
+    this.showNewVenueModal.set(false);
+    queueMicrotask(() => this.venueDialogTrigger?.focus());
   }
 
   clearVenueFieldError(fieldName: string) {
@@ -894,7 +913,7 @@ export class EventCreateComponent implements OnInit {
       .subscribe({
         next: created => {
           this.savingVenue.set(false);
-          this.showNewVenueModal.set(false);
+          this.closeNewVenueModal();
           this.venues.update(v => [...v, created]);
           this.selectedVenueId = created.id;
           this.toast.success(`Venue "${created.name}" created successfully!`);
